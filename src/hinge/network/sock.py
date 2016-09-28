@@ -1,8 +1,8 @@
 import socket
 import struct
 
-from hinge.utils import errors
-from hinge.utils import exceptions
+from src.hinge.utils import errors
+from src.hinge.utils import exceptions
 
 
 class Socket(object):

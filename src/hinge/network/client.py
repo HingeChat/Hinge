@@ -1,17 +1,17 @@
 import base64
 import Queue
 
-from hinge.crypto.crypto import Crypto
-from hinge.crypto.smp import SMP
+from src.hinge.crypto.crypto import Crypto
+from src.hinge.crypto.smp import SMP
 
-from hinge.network.message import Message
+from src.hinge.network.message import Message
 
 from threading import Thread
 
-from hinge.utils import constants
-from hinge.utils import errors
-from hinge.utils import exceptions
-from hinge.utils import utils
+from src.hinge.utils import constants
+from src.hinge.utils import errors
+from src.hinge.utils import exceptions
+from src.hinge.utils import utils
 
 
 class Client(Thread):

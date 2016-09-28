@@ -9,10 +9,10 @@ from client import Client
 from message import Message
 from sock import Socket
 
-from hinge.utils import constants
-from hinge.utils import exceptions
-from hinge.utils import errors
-from hinge.utils import utils
+from src.hinge.utils import constants
+from src.hinge.utils import exceptions
+from src.hinge.utils import errors
+from src.hinge.utils import utils
 
 
 class ConnectionManager(object):

@@ -1,8 +1,8 @@
 import os
 import M2Crypto
 
-from hinge.utils import constants
-from hinge.utils import exceptions
+from src.hinge.utils import constants
+from src.hinge.utils import exceptions
 
 class Crypto(object):
     ENCRYPT = 1;

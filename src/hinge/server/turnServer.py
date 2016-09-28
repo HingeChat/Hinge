@@ -9,13 +9,13 @@ from threading import Thread
 
 from console import Console
 
-from hinge.network.message import Message
-from hinge.network.sock import Socket
+from src.hinge.network.message import Message
+from src.hinge.network.sock import Socket
 
-from hinge.utils import constants
-from hinge.utils import errors
-from hinge.utils import exceptions
-from hinge.utils import utils
+from src.hinge.utils import constants
+from src.hinge.utils import errors
+from src.hinge.utils import exceptions
+from src.hinge.utils import utils
 
 
 # Dict to store connected clients in

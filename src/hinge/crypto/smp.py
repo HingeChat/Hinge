@@ -2,8 +2,8 @@ import crypto
 import M2Crypto
 import struct
 
-from hinge.utils import errors
-from hinge.utils import exceptions
+from src.hinge.utils import errors
+from src.hinge.utils import exceptions
 
 
 class SMP(object):
