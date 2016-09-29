@@ -21,12 +21,12 @@ class Crypto(object):
         self.aesMode        = constants.DEFAULT_AES_MODE
 
 
-    def generateKeys(self, rsaBits=2048, aesMode=constants.DEFAULT_AES_MODE):
+    def generateKeys(self, rsaBits=constants.DEFAULT_RSA_BITS, aesMode=constants.DEFAULT_AES_MODE):
         self.generateRSAKeypair(rsaBits)
         self.generateAESKey(aesMode)
 
 
-    def generateRSAKeypair(self, bits=2048):
+    def generateRSAKeypair(self, bits=constants.DEFAULT_RSA_BITS):
         # Generate the keypair (65537 as the public exponent)
         self.localKeypair = M2Crypto.RSA.gen_key(bits, 65537, self.__generateKeypairCallback)
 
@@ -108,16 +108,16 @@ class Crypto(object):
 
 
     def __aesGetCipher(self, op):
-        return M2Crypto.EVP.Cipher(alg=self.aesMode, key=self.aesKey, iv=self.aesIv, salt=self.aesSalt, d='sha256', op=op)
+        return M2Crypto.EVP.Cipher(alg=self.aesMode, key=self.aesKey, iv=self.aesIv, salt=self.aesSalt, d=constants.DEFAULT_HASH_TYPE, op=op)
 
 
     def generateHmac(self, message):
-        hmac = M2Crypto.EVP.HMAC(self.aesKey, 'sha256')
+        hmac = M2Crypto.EVP.HMAC(self.aesKey, constants.DEFAULT_HASH_TYPE)
         hmac.update(message)
         return hmac.digest()
 
 
-    def hash(self, message, type='sha256'):
+    def hash(self, message, type=constants.DEFAULT_HASH_TYPE):
         hash = M2Crypto.EVP.MessageDigest(type)
         hash.update(message)
         return hash.final()
