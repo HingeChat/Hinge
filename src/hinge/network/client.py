@@ -15,7 +15,7 @@ from src.hinge.utils import utils
 
 
 class Client(Thread):
-    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False, isGroup=False, originalNick=None):
+    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, anotherPerson, initiateHandkshakeOnStart=False, isGroup=False, originalNick=None):
         Thread.__init__(self)
         self.daemon = True
 
@@ -26,6 +26,7 @@ class Client(Thread):
         self.handshakeDoneCallback = handshakeDoneCallback
         self.smpRequestCallback = smpRequestCallback
         self.errorCallback = errorCallback
+        self.anotherPerson = anotherPerson
         self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
         self.isGroup = isGroup
         self.originalNick = originalNick
@@ -157,7 +158,7 @@ class Client(Thread):
             self.isEncrypted = True
 
             self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, self.isGroup, self.originalNick)
+            self.handshakeDoneCallback(self.remoteNick, self.anotherPerson, self.isGroup, self.originalNick)
         except exceptions.ProtocolEnd:
             self.disconnect()
             self.connectionManager.destroyClient(self.remoteNick)
@@ -185,7 +186,7 @@ class Client(Thread):
             self.isEncrypted = True
 
             self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, self.isGroup, self.originalNick)
+            self.handshakeDoneCallback(self.remoteNick, self.anotherPerson, self.isGroup, self.originalNick)
         except exceptions.ProtocolEnd:
             self.disconnect()
             self.connectionManager.destroyClient(self.remoteNick)

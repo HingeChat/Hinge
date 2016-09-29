@@ -53,11 +53,11 @@ class ConnectionManager(object):
                 pass
 
 
-    def openChat(self, destNick, isGroup=False, originalNick=None):
-        self.__createClient(destNick.lower(), isGroup, originalNick, initiateHandshakeOnStart=True)
+    def openChat(self, destNick, isGroup=False, originalNick=None, anotherPerson=False):
+        self.__createClient(destNick.lower(), isGroup, originalNick, anotherPerson, initiateHandshakeOnStart=True)
 
 
-    def __createClient(self, nick, isGroup, originalNick, initiateHandshakeOnStart=False):
+    def __createClient(self, nick, isGroup, originalNick, anotherPerson, initiateHandshakeOnStart=False):
         if type(nick) is not str:
             raise TypeError
         # Check that we're not connecting to ourself
@@ -70,9 +70,9 @@ class ConnectionManager(object):
             return
 
         if originalNick is not None:
-            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup, originalNick=originalNick)
+            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, anotherPerson, initiateHandshakeOnStart, isGroup=isGroup, originalNick=originalNick)
         else:
-            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup, originalNick=None)
+            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, anotherPerson, initiateHandshakeOnStart, isGroup=isGroup, originalNick=None)
         if isGroup is False:
             self.clients[nick] = newClient
         else:
@@ -164,8 +164,8 @@ class ConnectionManager(object):
                 self.sendMessage(Message(clientCommand=constants.COMMAND_ERR, error=errors.INVALID_COMMAND))
 
 
-    def newClientAccepted(self, nick, isGroup=False, originalNick=None):
-        self.__createClient(nick, isGroup, originalNick)
+    def newClientAccepted(self, nick, isGroup=False, originalNick=None, anotherPerson=False):
+        self.__createClient(nick, isGroup, originalNick, anotherPerson)
 
 
     def newClientRejected(self, nick):
