@@ -53,11 +53,11 @@ class ConnectionManager(object):
                 pass
 
 
-    def openChat(self, destNick, isGroup=False):
-        self.__createClient(destNick.lower(), isGroup, initiateHandshakeOnStart=True)
+    def openChat(self, destNick, isGroup=False, originalNick=None):
+        self.__createClient(destNick.lower(), isGroup, originalNick, initiateHandshakeOnStart=True)
 
 
-    def __createClient(self, nick, isGroup, initiateHandshakeOnStart=False):
+    def __createClient(self, nick, isGroup, originalNick, initiateHandshakeOnStart=False):
         if type(nick) is not str:
             raise TypeError
         # Check that we're not connecting to ourself
@@ -69,7 +69,10 @@ class ConnectionManager(object):
             self.errorCallback(nick, errors.ERR_ALREADY_CONNECTED)
             return
 
-        newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup)
+        if originalNick is not None:
+            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup, originalNick=originalNick)
+        else:
+            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup, originalNick=None)
         if isGroup is False:
             self.clients[nick] = newClient
         else:
@@ -161,8 +164,8 @@ class ConnectionManager(object):
                 self.sendMessage(Message(clientCommand=constants.COMMAND_ERR, error=errors.INVALID_COMMAND))
 
 
-    def newClientAccepted(self, nick, isGroup=False):
-        self.__createClient(nick, isGroup)
+    def newClientAccepted(self, nick, isGroup=False, originalNick=None):
+        self.__createClient(nick, isGroup, originalNick)
 
 
     def newClientRejected(self, nick):

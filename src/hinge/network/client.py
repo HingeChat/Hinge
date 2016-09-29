@@ -15,7 +15,7 @@ from src.hinge.utils import utils
 
 
 class Client(Thread):
-    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False, isGroup=False):
+    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False, isGroup=False, originalNick=None):
         Thread.__init__(self)
         self.daemon = True
 
@@ -28,6 +28,7 @@ class Client(Thread):
         self.errorCallback = errorCallback
         self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
         self.isGroup = isGroup
+        self.originalNick = originalNick
 
         self.incomingMessageNum = 0
         self.outgoingMessageNum = 0
@@ -156,7 +157,7 @@ class Client(Thread):
             self.isEncrypted = True
 
             self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, self.isGroup)
+            self.handshakeDoneCallback(self.remoteNick, self.isGroup, self.originalNick)
         except exceptions.ProtocolEnd:
             self.disconnect()
             self.connectionManager.destroyClient(self.remoteNick)
@@ -184,7 +185,7 @@ class Client(Thread):
             self.isEncrypted = True
 
             self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, self.isGroup)
+            self.handshakeDoneCallback(self.remoteNick, self.isGroup, self.originalNick)
         except exceptions.ProtocolEnd:
             self.disconnect()
             self.connectionManager.destroyClient(self.remoteNick)
