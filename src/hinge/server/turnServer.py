@@ -1,6 +1,4 @@
-import os
 import Queue
-import signal
 import socket
 import sys
 import time
@@ -24,8 +22,7 @@ nickMap = {}
 # Dict for new clients that haven't registered a nick yet
 ipMap = {}
 
-quiet = False
-
+quiet = False # While this will always be False (as we won't be using this, ever), it's easier to just keep it here.
 
 class TURNServer(object):
     def __init__(self, listenPort, showConsole=True):
@@ -39,8 +36,8 @@ class TURNServer(object):
         self.openLog()
         self.serversock = self.startServer()
 
-        if quiet:
-            Console().start()
+        # if quiet:
+            # Console(nickMap, ipMap).start() - This should be done by the server itself, as the out of the box Hinge API console is empty (as it's supposed to be).
 
         while True:
             # Wait for a client to connect
