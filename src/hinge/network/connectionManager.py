@@ -5,8 +5,8 @@ import traceback
 
 from threading import Thread
 
-from client import Client
-from message import Message
+from Client import Client
+from Message import Message
 from sock import Socket
 
 from src.hinge.utils import constants

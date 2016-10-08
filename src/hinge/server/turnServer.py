@@ -5,9 +5,9 @@ import time
 
 from threading import Thread
 
-from console import Console
+from Console import Console
 
-from src.hinge.network.message import Message
+from src.hinge.network.Message import Message
 from src.hinge.network.sock import Socket
 
 from src.hinge.utils import constants

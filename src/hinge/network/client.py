@@ -1,10 +1,10 @@
 import base64
 import Queue
 
-from src.hinge.crypto.crypto import Crypto
+from src.hinge.crypto.Crypto import Crypto
 from src.hinge.crypto.smp import SMP
 
-from src.hinge.network.message import Message
+from src.hinge.network.Message import Message
 
 from threading import Thread
 

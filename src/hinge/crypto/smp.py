@@ -1,4 +1,4 @@
-import crypto
+import Crypto
 import M2Crypto
 import struct
 
