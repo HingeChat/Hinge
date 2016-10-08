@@ -53,11 +53,11 @@ class ConnectionManager(object):
                 pass
 
 
-    def openChat(self, destNick, isGroup=False, originalNick=None, anotherPerson=False):
-        self.__createClient(destNick.lower(), isGroup, originalNick, anotherPerson, initiateHandshakeOnStart=True)
+    def openChat(self, destNick, isGroup=False):
+        self.__createClient(destNick.lower(), isGroup, initiateHandshakeOnStart=True)
 
 
-    def __createClient(self, nick, isGroup, originalNick, anotherPerson, initiateHandshakeOnStart=False):
+    def __createClient(self, nick, isGroup, initiateHandshakeOnStart=False):
         if type(nick) is not str:
             raise TypeError
         # Check that we're not connecting to ourself
@@ -69,17 +69,13 @@ class ConnectionManager(object):
             self.errorCallback(nick, errors.ERR_ALREADY_CONNECTED)
             return
 
-        if originalNick is not None:
-            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, anotherPerson, initiateHandshakeOnStart, isGroup=isGroup, originalNick=originalNick)
-        else:
-            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, anotherPerson, initiateHandshakeOnStart, isGroup=isGroup, originalNick=None)
+        newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup)
         if isGroup is False:
             self.clients[nick] = newClient
         else:
             self.clients[nick] = newClient
             self.groupClients[nick] = newClient
         newClient.start()
-
 
     def closeChat(self, nick):
         client = self.getClient(nick)
@@ -164,8 +160,8 @@ class ConnectionManager(object):
                 self.sendMessage(Message(clientCommand=constants.COMMAND_ERR, error=errors.INVALID_COMMAND))
 
 
-    def newClientAccepted(self, nick, isGroup=False, originalNick=None, anotherPerson=False):
-        self.__createClient(nick, isGroup, originalNick, anotherPerson)
+    def newClientAccepted(self, nick, isGroup=False):
+        self.__createClient(nick, isGroup)
 
 
     def newClientRejected(self, nick):
