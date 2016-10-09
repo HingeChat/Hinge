@@ -15,7 +15,7 @@ from src.hinge.utils import utils
 
 
 class Client(Thread):
-    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False, isGroup=False):
+    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False, isGroup=False, otherNicks=''):
         Thread.__init__(self)
         self.daemon = True
 
@@ -28,6 +28,7 @@ class Client(Thread):
         self.errorCallback = errorCallback
         self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
         self.isGroup = isGroup
+        self.otherNicks = otherNicks
 
         self.incomingMessageNum = 0
         self.outgoingMessageNum = 0
@@ -50,7 +51,10 @@ class Client(Thread):
 
     def sendMessage(self, command, payload=None):
         if self.isGroup:
-            message = Message(clientCommand=command, destNick=self.remoteNick, isGroup=True)
+            if self.otherNicks is not '':
+                message = Message(clientCommand=command, destNick=self.remoteNick, isGroup=True, otherNicks=self.otherNicks)
+            else:
+                message = Message(clientCommand=command, destNick=self.remoteNick, isGroup=True)
         else:
             message = Message(clientCommand=command, destNick=self.remoteNick)
 
