@@ -14,7 +14,6 @@ from src.hinge.utils import exceptions
 from src.hinge.utils import errors
 from src.hinge.utils import utils
 
-
 class ConnectionManager(object):
     def __init__(self, nick, serverAddr, recvMessageCallback, newClientCallback, handshakeDoneCallback, smpRequestCallback, errorCallback):
         self.clients = {}
@@ -31,14 +30,12 @@ class ConnectionManager(object):
         self.recvThread = RecvThread(self.sock, self.recvMessage, self.errorCallback)
         self.messageQueue = Queue.Queue()
 
-
     def connectToServer(self):
         self.sock.connect()
         self.sendThread.start()
         self.recvThread.start()
         self.__sendProtocolVersion()
         self.__registerNick()
-
 
     def disconnectFromServer(self):
         if self.sock.isConnected:
@@ -76,10 +73,9 @@ class ConnectionManager(object):
             self.clients[nick] = newClient
         else:
             self.clients[nick] = newClient
-            self.groupClients[nick] = newClient
         if otherNicks is not '':
-            if otherNicks not in self.groupClients:
-                self.groupClients[otherNicks] = otherClient
+            if otherNicks not in self.clients:
+                self.clients[otherNicks] = otherClient
         newClient.start()
 
     def closeChat(self, nick):
@@ -98,7 +94,7 @@ class ConnectionManager(object):
 
     def getGroupClients(self):
         try:
-            return self.groupClients
+            return self.clients
         except KeyError:
             return None
 
@@ -144,7 +140,7 @@ class ConnectionManager(object):
             self.errorCallback('', int(message.error))
             return
 
-        # Send the payload to it's intended client
+        # Send the payload to its intended client
         try:
             self.clients[sourceNick].postMessage(message)
         except KeyError as ke:

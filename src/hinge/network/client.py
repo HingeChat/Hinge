@@ -13,7 +13,6 @@ from src.hinge.utils import errors
 from src.hinge.utils import exceptions
 from src.hinge.utils import utils
 
-
 class Client(Thread):
     def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False, isGroup=False, otherNicks=''):
         Thread.__init__(self)
@@ -40,14 +39,11 @@ class Client(Thread):
         self.crypto.generateDHKey()
         self.smp = None
 
-
     def sendChatMessage(self, text):
         self.sendMessage(constants.COMMAND_MSG, text)
 
-
     def sendTypingMessage(self, status):
         self.sendMessage(constants.COMMAND_TYPING, str(status))
-
 
     def sendMessage(self, command, payload=None):
         if self.isGroup:
@@ -74,10 +70,8 @@ class Client(Thread):
 
         self.sendMessageCallback(message)
 
-
     def postMessage(self, message):
         self.messageQueue.put(message)
-
 
     def initiateSMP(self, question, answer):
         self.sendMessage(constants.COMMAND_SMP_0, question)
@@ -86,11 +80,9 @@ class Client(Thread):
         buffer = self.smp.step1()
         self.sendMessage(constants.COMMAND_SMP_1, buffer)
 
-
     def respondSMP(self, answer):
         self.smp = SMP(answer)
         self.__doSMPStep1(self.smpStep1)
-
 
     def run(self):
         if self.initiateHandkshakeOnStart:
@@ -129,17 +121,14 @@ class Client(Thread):
             else:
                 self.recvMessageCallback(command, message.sourceNick, payload, self.isGroup)
 
-
     def connect(self):
         self.__initiateHandshake()
-
 
     def disconnect(self):
         try:
             self.sendMessage(constants.COMMAND_END)
         except:
             pass
-
 
     def __doHandshake(self):
         try:
@@ -166,7 +155,6 @@ class Client(Thread):
             self.connectionManager.destroyClient(self.remoteNick)
         except (exceptions.ProtocolError, exceptions.CryptoError) as e:
             self.__handleHandshakeError(e)
-
 
     def __initiateHandshake(self):
         try:
@@ -195,7 +183,6 @@ class Client(Thread):
         except (exceptions.ProtocolError, exceptions.CryptoError) as e:
             self.__handleHandshakeError(e)
 
-
     def __getHandshakeMessagePayload(self, expectedCommand):
         message = self.messageQueue.get()
 
@@ -211,7 +198,6 @@ class Client(Thread):
         self.messageQueue.task_done()
 
         return payload
-
 
     def __getDecryptedPayload(self, message):
         if self.isEncrypted:
@@ -245,11 +231,9 @@ class Client(Thread):
 
         return payload
 
-
     def __verifyHmac(self, givenHmac, payload):
         generatedHmac = self.crypto.generateHmac(payload)
         return utils.secureStrcmp(generatedHmac, base64.b64decode(givenHmac))
-
 
     def __handleSMPCommand(self, command, payload):
         try:
@@ -275,16 +259,13 @@ class Client(Thread):
         except exceptions.CryptoError as ce:
             self.smpRequestCallback(constants.SMP_CALLBACK_ERROR, self.remoteNick, '', ce.errno)
 
-
     def __doSMPStep1(self, payload):
         buffer = self.smp.step2(payload)
         self.sendMessage(constants.COMMAND_SMP_2, buffer)
 
-
     def __doSMPStep2(self, payload):
         buffer = self.smp.step3(payload)
         self.sendMessage(constants.COMMAND_SMP_3, buffer)
-
 
     def __doSMPStep3(self, payload):
         buffer = self.smp.step4(payload)
@@ -292,7 +273,6 @@ class Client(Thread):
 
         # Destroy the SMP object now that we're done
         self.smp = None
-
 
     def __doSMPStep4(self, payload):
         self.smp.step5(payload)
@@ -303,12 +283,10 @@ class Client(Thread):
         # Destroy the SMP object now that we're done
         self.smp = None
 
-
     def __checkSMP(self):
         if not self.smp.match:
             raise exceptions.CryptoError(errno=errors.ERR_SMP_MATCH_FAILED)
         return True
-
 
     def __handleHandshakeError(self, exception):
         self.errorCallback(self.remoteNick, exception.errno)
