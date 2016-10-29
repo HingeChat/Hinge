@@ -164,7 +164,7 @@ class RecvThread(Thread):
         try:
             message = Message.createFromJSON(self.sock.recv())
         except KeyError:
-            printAndLog("%s: send a command with missing JSON fields" % self.sock)
+            printAndLog("%s: sent a command with missing JSON fields" % self.sock)
             self.__handleError(errors.ERR_INVALID_COMMAND)
             return
 
@@ -223,6 +223,22 @@ class RecvThread(Thread):
                     printAndLog("%s: requested to end connection" % self.nick)
                     nickMap[self.nick].disconnect()
                     return
+                elif message.serverCommand == constants.COMMAND_ADD:
+                    printAndLog("%s: requested to add nick to group chat" % self.nick)
+
+                    destNick = message.destNick
+                    # Validate the destination nick
+                    if utils.isValidNick(destNick) != errors.VALID_NICK:
+                        printAndLog("%s: requested to send message to invalid nick" % self.nick)
+                        self.__handleError(errors.ERR_INVALID_NICK)
+
+                    client = nickMap[destNick.lower()]
+
+                    # Rewrite the source nick to prevent nick spoofing
+                    message.sourceNick = self.nick
+
+                    client.send(message)
+                    return
                 elif message.serverCommand != constants.COMMAND_RELAY:
                     printAndLog("%s: sent invalid command" % self.nick)
                     self.__handleError(errors.ERR_INVALID_COMMAND)
@@ -241,9 +257,11 @@ class RecvThread(Thread):
                     message.sourceNick = self.nick
 
                     client.send(message)
-                except KeyError:
-                    printAndLog("%s: sent message to non-existant nick" % self.nick)
-                    self.sock.send(str(Message(serverCommand=constants.COMMAND_ERR, destNick=message.destNick, error=errors.ERR_NICK_NOT_FOUND)))
+                except KeyError: # This is usually always caused by group chats
+                    pass # For now, just do nothing...
+                    # self.sock.send(str(Message(serverCommand=constants.COMMAND_ERR, destNick=message.destNick)))
+                    # printAndLog("%s: sent message to non-existant nick" % self.nick)
+                    # self.sock.send(str(Message(serverCommand=constants.COMMAND_ERR, destNick=message.destNick, error=errors.ERR_NICK_NOT_FOUND)))
             except Exception as e:
                 if hasattr(e, 'errno') and e.errno != errors.ERR_CLOSED_CONNECTION:
                     printAndLog("%s: error receiving from: %s" % (self.nick, str(e)))

@@ -49,10 +49,10 @@ class ConnectionManager(object):
             except Exception:
                 pass
 
-    def openChat(self, destNick, otherNicks='', isGroup=False):
-        self.__createClient(destNick.lower(), otherNicks, isGroup, initiateHandshakeOnStart=True)
+    def openChat(self, destNick, otherNicks='', sender=False, isGroup=False):
+        self.__createClient(destNick.lower(), otherNicks, isGroup, sender, initiateHandshakeOnStart=True)
 
-    def __createClient(self, nick, otherNicks, isGroup, initiateHandshakeOnStart=False):
+    def __createClient(self, nick, otherNicks, isGroup, sender, initiateHandshakeOnStart=False):
         if type(nick) is not str:
             raise TypeError
         # Check that we're not connecting to ourself
@@ -76,6 +76,14 @@ class ConnectionManager(object):
         if otherNicks is not '':
             if otherNicks not in self.clients:
                 self.clients[otherNicks] = otherClient
+        if sender:
+            self.sendMessage(Message(destNick=otherNicks, otherNicks=nick), True)
+
+        newClient.start()
+
+    def addClient(self, nick, otherNicks, initiateHandshakeOnStart):
+        newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=True, otherNicks=otherNicks)
+        self.clients[nick] = newClient
         newClient.start()
 
     def closeChat(self, nick):
@@ -114,10 +122,16 @@ class ConnectionManager(object):
         # Send a commend intended for the server, not another client (such as registering a nick)
         self.sendThread.messageQueue.put(Message(serverCommand=command, sourceNick=self.nick, payload=payload))
 
-    def sendMessage(self, message):
-        message.serverCommand = constants.COMMAND_RELAY
-        message.sourceNick = self.nick
-        self.sendThread.messageQueue.put(message)
+    def sendMessage(self, message, recentlyAdded=False):
+        if recentlyAdded:
+            message.serverCommand = constants.COMMAND_ADD
+            message.sourceNick = self.nick
+            self.sendThread.messageQueue.put(message)
+        else:
+            message.serverCommand = constants.COMMAND_RELAY
+            message.sourceNick = self.nick
+            # num, payload, hmac
+            self.sendThread.messageQueue.put(message)
 
     def recvMessage(self, message):
         command  = message.clientCommand
@@ -139,6 +153,9 @@ class ConnectionManager(object):
         elif message.serverCommand == constants.COMMAND_END:
             self.errorCallback('', int(message.error))
             return
+        elif message.serverCommand == constants.COMMAND_ADD:
+            self.addClient(otherNicks, sourceNick, False)
+            return
 
         # Send the payload to its intended client
         try:
@@ -157,7 +174,7 @@ class ConnectionManager(object):
                 self.sendMessage(Message(clientCommand=constants.COMMAND_ERR, error=errors.INVALID_COMMAND))
 
     def newClientAccepted(self, nick, isGroup=False, otherNicks=''):
-        self.__createClient(nick, otherNicks, isGroup=isGroup)
+        self.__createClient(nick, otherNicks, isGroup=isGroup, sender=False)
 
     def newClientRejected(self, nick):
         # If rejected, send the rejected command to the client

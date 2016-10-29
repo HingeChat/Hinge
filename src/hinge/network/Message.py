@@ -1,7 +1,6 @@
 import base64
 import json
 
-
 class Message(object):
     def __init__(self, serverCommand=None, clientCommand=None, sourceNick=None, destNick=None,
                  payload=None, hmac=None, error=None, num=None, isGroup=False, otherNicks=''):

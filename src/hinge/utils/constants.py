@@ -13,6 +13,7 @@ TYPING_TIMEOUT = 1500
 # Server commands
 COMMAND_REGISTER = "REG"
 COMMAND_RELAY    = "REL"
+COMMAND_ADD      = "ADD"
 COMMAND_VERSION  = "VERSION"
 
 # Client commands
