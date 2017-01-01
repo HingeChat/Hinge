@@ -3,7 +3,7 @@ import json
 
 class Message(object):
     def __init__(self, serverCommand=None, clientCommand=None, sourceNick=None, destNick=None,
-                 payload=None, hmac=None, error=None, num=None, isGroup=False, otherNicks=''):
+                 payload=None, hmac=None, error=None, num=None, isGroup=False, destNicks=[]):
         self.serverCommand = str(serverCommand)
         self.clientCommand = str(clientCommand)
         self.sourceNick    = str(sourceNick)
@@ -13,13 +13,13 @@ class Message(object):
         self.error         = str(error)
         self.num           = str(num)
         self.isGroup       = bool(isGroup)
-        self.otherNicks    = str(otherNicks)
+        self.destNicks    = list(destNicks)
 
     def __str__(self):
         return json.dumps({'serverCommand': self.serverCommand, 'clientCommand': self.clientCommand,
                            'sourceNick': self.sourceNick, 'destNick': self.destNick,
                            'payload': self.payload, 'hmac': self.hmac, 'error': self.error, 'num': self.num,
-                           'isGroup': self.isGroup, 'otherNicks': self.otherNicks})
+                           'isGroup': self.isGroup, 'destNicks': self.destNicks})
 
     def getEncryptedPayloadAsBinaryString(self):
         return base64.b64decode(self.payload)
@@ -43,4 +43,4 @@ class Message(object):
     def createFromJSON(jsonStr):
         jsonStr = json.loads(jsonStr)
         return Message(jsonStr['serverCommand'], jsonStr['clientCommand'], jsonStr['sourceNick'], jsonStr['destNick'],
-                       jsonStr['payload'], jsonStr['hmac'], jsonStr['error'], jsonStr['num'], jsonStr['isGroup'], jsonStr['otherNicks'])
+                       jsonStr['payload'], jsonStr['hmac'], jsonStr['error'], jsonStr['num'], jsonStr['isGroup'], jsonStr['destNicks'])

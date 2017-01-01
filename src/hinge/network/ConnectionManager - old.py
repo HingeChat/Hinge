@@ -6,7 +6,6 @@ import traceback
 from threading import Thread
 
 from Client import Client
-from GroupClient import GroupClient
 from Message import Message
 from sock import Socket
 
@@ -50,42 +49,47 @@ class ConnectionManager(object):
             except Exception:
                 pass
 
-    def openChat(self, destNick, nicks=[], sender=False, isGroup=False):
-        self.__createClient(destNick.lower(), nicks, isGroup, sender, initiateHandshakeOnStart=True)
+    def openChat(self, destNick, otherNicks='', sender=False, isGroup=False):
+        self.__createClient(destNick.lower(), otherNicks, isGroup, sender, initiateHandshakeOnStart=True)
 
-    def __createClient(self, nick, nicks, isGroup, sender, initiateHandshakeOnStart=False):
+    def __createClient(self, nick, otherNicks, isGroup, sender, initiateHandshakeOnStart=False):
         if type(nick) is not str:
             raise TypeError
-
         # Check that we're not connecting to ourself
         elif nick == self.nick:
             self.errorCallback(nick, errors.ERR_SELF_CONNECT)
             return
-
         # Check if a connection to the nick already exists
         elif nick in self.clients and isGroup is False:
             self.errorCallback(nick, errors.ERR_ALREADY_CONNECTED)
             return
+        print type(otherNicks)
 
-        if nicks: # This would be a group chat
-            # The nicks list by default is only the original nick, so we need to add the others to it
-            nicks.append(self.nick)
-            nicks.append(nick)
-            self.groupClient = GroupClient(self, nicks, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart)
-        else: # Not a group chat
-            self.client = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart)
-        if isGroup is False:
-            self.clients[nick] = self.client
-            self.client.start()
+        if otherNicks is not '':
+            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup, otherNicks=otherNicks)
+            otherClient = Client(self, otherNicks, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup)
         else:
-            self.clients[nick] = self.groupClient
-            self.groupClient.start()
-            if sender:
-                self.sendMessage(Message(destNicks=nicks), True)
+            newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=isGroup)
+        if isGroup is False:
+            self.clients[nick] = newClient
+        else:
+            self.clients[nick] = newClient
+        if otherNicks is not '':
+            if otherNicks not in self.clients:
+                self.clients[otherNicks] = otherClient
+                print 'fsdfsdf'
+        if sender:
+            print 'sender'
+            self.sendMessage(Message(destNick=otherNicks, otherNicks=nick), True)
 
-    def addClient(self, nick):
-        self.clients[nick] = self.groupClient
-        self.groupClient.start()
+        print 'clients:', self.clients
+        newClient.start()
+
+    def addClient(self, nick, otherNicks, initiateHandshakeOnStart):
+        newClient = Client(self, nick, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart, isGroup=True, otherNicks=otherNicks)
+        self.clients[nick] = newClient
+        newClient.start()
+        print self.clients
 
     def closeChat(self, nick):
         client = self.getClient(nick)
@@ -131,13 +135,14 @@ class ConnectionManager(object):
         else:
             message.serverCommand = constants.COMMAND_RELAY
             message.sourceNick = self.nick
+            # num, payload, hmac
             self.sendThread.messageQueue.put(message)
 
     def recvMessage(self, message):
         command  = message.clientCommand
         sourceNick = message.sourceNick
         isGroup = message.isGroup
-        destNicks = message.destNicks
+        otherNicks = message.otherNicks
 
         # Handle errors/shutdown from the server
         if message.serverCommand == constants.COMMAND_ERR:
@@ -154,22 +159,33 @@ class ConnectionManager(object):
             self.errorCallback('', int(message.error))
             return
         elif message.serverCommand == constants.COMMAND_ADD:
-            for nick in destNicks:
-                self.addClient(nick)
+            self.addClient(otherNicks, sourceNick, False)
+            print 'dest:', message.destNick
+            print 'source:', message.sourceNick
+            print 'other:', message.otherNicks
             return
 
         # Send the payload to its intended client
         try:
+            print 'sourceNick:', sourceNick
+            if self.nick == 'c':
+                print message
             self.clients[sourceNick].postMessage(message)
         except KeyError as ke:
             # Create a new client if we haven't seen this client before
-            if command == constants.COMMAND_HELO: # Group chats do not send this
-                self.newClientCallback(sourceNick)
+            if command == constants.COMMAND_HELO:
+                if isGroup:
+                    if otherNicks is not '':
+                        self.newClientCallback(sourceNick, isGroup=True, otherNicks=otherNicks)
+                    else:
+                        self.newClientCallback(sourceNick, isGroup=True)
+                else:
+                    self.newClientCallback(sourceNick)
             else:
                 self.sendMessage(Message(clientCommand=constants.COMMAND_ERR, error=errors.INVALID_COMMAND))
 
-    def newClientAccepted(self, nick, isGroup=False, nicks=[]):
-        self.__createClient(nick, nicks, isGroup=isGroup, sender=False)
+    def newClientAccepted(self, nick, isGroup=False, otherNicks=''):
+        self.__createClient(nick, otherNicks, isGroup=isGroup, sender=False)
 
     def newClientRejected(self, nick):
         # If rejected, send the rejected command to the client

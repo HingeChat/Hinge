@@ -13,19 +13,36 @@ from src.hinge.utils import errors
 from src.hinge.utils import exceptions
 from src.hinge.utils import utils
 
-class Client(Thread):
-    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False):
+class Session(object):
+    def __init__(self, nicks):
+        self.nicks = []
+        for n in nicks:
+            self.nicks.append(n)
+
+    def remove_client(self, nick):
+        self.nicks.remove(nick)
+
+    def recv_message(self, src, msg):
+        if src.name in self.nicks:
+            print("Received message : {0}: {1}".format(src.name, msg))
+
+class GroupClient(Thread):
+    def __init__(self, connectionManager, nicks, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False):
         Thread.__init__(self)
         self.daemon = True
 
         self.connectionManager = connectionManager
-        self.remoteNick = remoteNick
+        self.nicks = nicks
         self.sendMessageCallback = sendMessageCallback
         self.recvMessageCallback = recvMessageCallback
         self.handshakeDoneCallback = handshakeDoneCallback
         self.smpRequestCallback = smpRequestCallback
         self.errorCallback = errorCallback
         self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
+
+        self.remoteNick = self.connectionManager.nick
+
+        self.sessions = []
 
         self.incomingMessageNum = 0
         self.outgoingMessageNum = 0
@@ -44,7 +61,7 @@ class Client(Thread):
         self.sendMessage(constants.COMMAND_TYPING, str(status))
 
     def sendMessage(self, command, payload=None):
-        message = Message(clientCommand=command, destNick=self.remoteNick)
+        message = Message(clientCommand=command, isGroup=True, destNicks=self.nicks)
 
         # Encrypt all outgoing data
         if payload is not None and self.isEncrypted:
@@ -77,10 +94,7 @@ class Client(Thread):
         self.__doSMPStep1(self.smpStep1)
 
     def run(self):
-        if self.initiateHandkshakeOnStart:
-            self.__initiateHandshake()
-        else:
-            self.__doHandshake()
+        self.group = self.__createSession(self.nicks)
 
         if not self.wasHandshakeDone:
             return
@@ -90,6 +104,7 @@ class Client(Thread):
 
             command = message.clientCommand
             payload = message.payload
+            sourceNick = message.sourceNick
 
             # Check if the client requested to end the connection
             if command == constants.COMMAND_END:
@@ -111,7 +126,13 @@ class Client(Thread):
             if command in constants.SMP_COMMANDS:
                self.__handleSMPCommand(command, payload)
             else:
-                self.recvMessageCallback(command, message.sourceNick, payload, False)
+                if command == constants.COMMAND_MSG:
+                    if hasattr(self, 'group'):
+                        self.send_messagee(self.group, payload)
+                self.recvMessageCallback(command, sourceNick, payload, True)
+
+    def send_messagee(self, dest, data):
+        dest.recv_message(self, data)
 
     def connect(self):
         self.__initiateHandshake()
@@ -121,6 +142,14 @@ class Client(Thread):
             self.sendMessage(constants.COMMAND_END)
         except:
             pass
+
+    def __getSession(self, session):
+        return self.sessions.get(session)
+
+    def __createSession(self, nicks):
+        new = Session(nicks)
+        self.sessions.append(new)
+        return new
 
     def __doHandshake(self):
         try:
@@ -141,7 +170,7 @@ class Client(Thread):
             self.isEncrypted = True
 
             self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, False)
+            self.handshakeDoneCallback(self.remoteNick, True)
         except exceptions.ProtocolEnd:
             self.disconnect()
             self.connectionManager.destroyClient(self.remoteNick)
@@ -168,7 +197,7 @@ class Client(Thread):
             self.isEncrypted = True
 
             self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, False)
+            self.handshakeDoneCallback(self.remoteNick, True)
         except exceptions.ProtocolEnd:
             self.disconnect()
             self.connectionManager.destroyClient(self.remoteNick)

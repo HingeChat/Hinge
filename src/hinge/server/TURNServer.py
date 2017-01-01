@@ -245,18 +245,33 @@ class RecvThread(Thread):
                     return
 
                 try:
-                    destNick = message.destNick
-                    # Validate the destination nick
-                    if utils.isValidNick(destNick) != errors.VALID_NICK:
-                        printAndLog("%s: requested to send message to invalid nick" % self.nick)
-                        self.__handleError(errors.ERR_INVALID_NICK)
+                    if message.destNick == None: # The only case where destNick would be None is if it was directed to multiple nicks
+                        destNicks = message.destNicks
+                        for nick in destNicks:
+                            # Validate the destination nicks
+                            if utils.isValidNick(nick) != errors.VALID_NICK:
+                                printAndLog("%s: requested to send message to invalid nick" % self.nick)
+                                self.__handleError(errors.ERR_INVALID_NICK)
 
-                    client = nickMap[destNick.lower()]
+                            client = nickMap[nick.lower()]
 
-                    # Rewrite the source nick to prevent nick spoofing
-                    message.sourceNick = self.nick
+                            # Rewrite the source nick to prevent nick spoofing
+                            message.sourceNick = self.nick
 
-                    client.send(message)
+                            client.send(message)
+                    else:
+                        destNick = message.destNick
+                        # Validate the destination nick
+                        if utils.isValidNick(destNick) != errors.VALID_NICK:
+                            printAndLog("%s: requested to send message to invalid nick" % self.nick)
+                            self.__handleError(errors.ERR_INVALID_NICK)
+
+                        client = nickMap[destNick.lower()]
+
+                        # Rewrite the source nick to prevent nick spoofing
+                        message.sourceNick = self.nick
+
+                        client.send(message)
                 except KeyError: # This is usually always caused by group chats
                     pass # For now, just do nothing...
                     # self.sock.send(str(Message(serverCommand=constants.COMMAND_ERR, destNick=message.destNick)))
