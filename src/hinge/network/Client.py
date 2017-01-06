@@ -44,7 +44,7 @@ class Client(Thread):
         self.sendMessage(constants.COMMAND_TYPING, str(status))
 
     def sendMessage(self, command, payload=None):
-        message = Message(clientCommand=command, destNick=self.remoteNick)
+        message = Message(clientCommand=command, destNicks=[self.remoteNick])
 
         # Encrypt all outgoing data
         if payload is not None and self.isEncrypted:

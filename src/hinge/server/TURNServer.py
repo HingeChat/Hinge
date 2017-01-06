@@ -15,7 +15,6 @@ from src.hinge.utils import errors
 from src.hinge.utils import exceptions
 from src.hinge.utils import utils
 
-
 # Dict to store connected clients in
 nickMap = {}
 
@@ -30,7 +29,6 @@ class TURNServer(object):
 
         global quiet
         quiet = showConsole
-
 
     def start(self):
         self.openLog()
@@ -50,7 +48,6 @@ class TURNServer(object):
             printAndLog("Got connection: %s" % str(clientSock))
             ipMap[str(clientSock)] = Client(clientSock)
 
-
     def startServer(self):
         printAndLog("Starting server...")
         serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -65,7 +62,6 @@ class TURNServer(object):
             printAndLog("Failed to start server")
             sys.exit(1)
 
-
     def stop(self):
         printAndLog("Requested to stop server")
 
@@ -78,7 +74,6 @@ class TURNServer(object):
         if logFile is not None:
             logFile.close()
 
-
     def openLog(self):
         global logFile
         try:
@@ -86,7 +81,6 @@ class TURNServer(object):
         except:
             logFile = None
             print "Error opening logfile"
-
 
 class Client(object):
     def __init__(self, sock):
@@ -98,10 +92,8 @@ class Client(object):
         self.sendThread.start()
         self.recvThread.start()
 
-
     def send(self, message):
         self.sendThread.queue.put(message)
-
 
     def __nickRegistered(self, nick):
         # Add the client to the nick map and remove it from the ip map
@@ -113,18 +105,14 @@ class Client(object):
         except KeyError:
             pass
 
-
     def disconnect(self):
         self.sock.disconnect()
         del nickMap[self.nick]
-
 
     def kick(self):
         self.send(Message(serverCommand=constants.COMMAND_ERR, destNick=self.nick, error=errors.ERR_KICKED))
         time.sleep(.25)
         self.disconnect()
-
-
 
 class SendThread(Thread):
     def __init__(self, sock):
@@ -133,7 +121,6 @@ class SendThread(Thread):
 
         self.sock = sock
         self.queue = Queue.Queue()
-
 
     def run(self):
         while True:
@@ -149,7 +136,6 @@ class SendThread(Thread):
             finally:
                 self.queue.task_done()
 
-
 class RecvThread(Thread):
     def __init__(self, sock, nickRegisteredCallback):
         Thread.__init__(self)
@@ -157,7 +143,6 @@ class RecvThread(Thread):
 
         self.sock = sock
         self.nickRegisteredCallback = nickRegisteredCallback
-
 
     def run(self):
         # The client should send the protocol version its using first
@@ -223,21 +208,22 @@ class RecvThread(Thread):
                     printAndLog("%s: requested to end connection" % self.nick)
                     nickMap[self.nick].disconnect()
                     return
-                elif message.serverCommand == constants.COMMAND_ADD:
-                    printAndLog("%s: requested to add nick to group chat" % self.nick)
+                elif message.serverCommand == constants.COMMAND_MAKEGROUP:
+                    printAndLog("%s: requested to create group chat with nicks %s" % self.nick % message.destNicks)
 
-                    destNick = message.destNick
-                    # Validate the destination nick
-                    if utils.isValidNick(destNick) != errors.VALID_NICK:
-                        printAndLog("%s: requested to send message to invalid nick" % self.nick)
-                        self.__handleError(errors.ERR_INVALID_NICK)
+                    destNicks = message.destNicks
+                    for nick in destNicks:
+                        # Validate the destination nicks
+                        if utils.isValidNick(nick) != errors.VALID_NICK:
+                            printAndLog("%s: requested to send message to invalid nick" % self.nick)
+                            self.__handleError(errors.ERR_INVALID_NICK)
 
-                    client = nickMap[destNick.lower()]
+                        client = nickMap[nick.lower()]
 
-                    # Rewrite the source nick to prevent nick spoofing
-                    message.sourceNick = self.nick
+                        # Rewrite the source nick to prevent nick spoofing
+                        message.sourceNick = self.nick
 
-                    client.send(message)
+                        client.send(message)
                     return
                 elif message.serverCommand != constants.COMMAND_RELAY:
                     printAndLog("%s: sent invalid command" % self.nick)
@@ -245,28 +231,14 @@ class RecvThread(Thread):
                     return
 
                 try:
-                    if message.destNick == None: # The only case where destNick would be None is if it was directed to multiple nicks
-                        destNicks = message.destNicks
-                        for nick in destNicks:
-                            # Validate the destination nicks
-                            if utils.isValidNick(nick) != errors.VALID_NICK:
-                                printAndLog("%s: requested to send message to invalid nick" % self.nick)
-                                self.__handleError(errors.ERR_INVALID_NICK)
-
-                            client = nickMap[nick.lower()]
-
-                            # Rewrite the source nick to prevent nick spoofing
-                            message.sourceNick = self.nick
-
-                            client.send(message)
-                    else:
-                        destNick = message.destNick
-                        # Validate the destination nick
-                        if utils.isValidNick(destNick) != errors.VALID_NICK:
+                    destNicks = message.destNicks
+                    for nick in destNicks:
+                        # Validate the destination nicks
+                        if utils.isValidNick(nick) != errors.VALID_NICK:
                             printAndLog("%s: requested to send message to invalid nick" % self.nick)
                             self.__handleError(errors.ERR_INVALID_NICK)
 
-                        client = nickMap[destNick.lower()]
+                        client = nickMap[nick.lower()]
 
                         # Rewrite the source nick to prevent nick spoofing
                         message.sourceNick = self.nick
@@ -285,7 +257,6 @@ class RecvThread(Thread):
                     nickMap[self.nick].disconnect()
                 return
 
-
     def __handleError(self, errorCode):
         self.sock.send(str(Message(serverCommand=constants.COMMAND_ERR, error=errorCode)))
         self.sock.disconnect()
@@ -302,14 +273,12 @@ class RecvThread(Thread):
         except:
             pass
 
-
 def printAndLog(message):
     if quiet:
         sys.stdout.write("\b\b\b%s\n>> " % message)
         sys.stdout.flush()
 
     log(message)
-
 
 def log(message):
     if logFile is not None:

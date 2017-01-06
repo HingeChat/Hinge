@@ -19,19 +19,20 @@ class Session(object):
         for n in nicks:
             self.nicks.append(n)
 
-    def remove_client(self, nick):
+    def removeClient(self, nick):
         self.nicks.remove(nick)
 
-    def recv_message(self, src, msg):
+    def recvMessage(self, src, msg):
         if src.name in self.nicks:
             print("Received message : {0}: {1}".format(src.name, msg))
 
 class GroupClient(Thread):
-    def __init__(self, connectionManager, nicks, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False):
+    def __init__(self, connectionManager, admin, nicks, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False):
         Thread.__init__(self)
         self.daemon = True
 
         self.connectionManager = connectionManager
+        self.admin = admin
         self.nicks = nicks
         self.sendMessageCallback = sendMessageCallback
         self.recvMessageCallback = recvMessageCallback
@@ -39,8 +40,6 @@ class GroupClient(Thread):
         self.smpRequestCallback = smpRequestCallback
         self.errorCallback = errorCallback
         self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
-
-        self.remoteNick = self.connectionManager.nick
 
         self.sessions = []
 
@@ -104,13 +103,13 @@ class GroupClient(Thread):
 
             # Check if the client requested to end the connection
             if command == constants.COMMAND_END:
-                self.connectionManager.destroyClient(self.remoteNick)
-                self.errorCallback(self.remoteNick, errors.ERR_CONNECTION_ENDED)
+                self.connectionManager.destroyClient(self.admin)
+                self.errorCallback(self.admin, errors.ERR_CONNECTION_ENDED)
                 return
             # Ensure we got a valid command
             elif self.wasHandshakeDone and command not in constants.LOOP_COMMANDS:
-                self.connectionManager.destroyClient(self.remoteNick)
-                self.errorCallback(self.remoteNick, errors.ERR_INVALID_COMMAND)
+                self.connectionManager.destroyClient(self.admin)
+                self.errorCallback(self.admin, errors.ERR_INVALID_COMMAND)
                 return
 
             # Decrypt the incoming data
@@ -124,11 +123,11 @@ class GroupClient(Thread):
             else:
                 if command == constants.COMMAND_MSG:
                     if hasattr(self, 'group'):
-                        self.send_messagee(self.group, payload)
+                        self.sendMessagee(self.group, payload)
                 self.recvMessageCallback(command, sourceNick, payload, True)
 
-    def send_messagee(self, dest, data):
-        dest.recv_message(self, data)
+    def sendMessagee(self, dest, data):
+        dest.recvMessage(self, data)
 
     def connect(self):
         self.__initiateHandshake()
@@ -187,7 +186,7 @@ class GroupClient(Thread):
         try:
             if command == constants.COMMAND_SMP_0:
                 # Fire the SMP request callback with the given question
-                self.smpRequestCallback(constants.SMP_CALLBACK_REQUEST, self.remoteNick, payload)
+                self.smpRequestCallback(constants.SMP_CALLBACK_REQUEST, self.admin, payload)
             elif command == constants.COMMAND_SMP_1:
                 # If there's already an smp object, go ahead to step 1.
                 # Otherwise, save the payload until we have an answer from the user to respond with
@@ -205,7 +204,7 @@ class GroupClient(Thread):
                 # This shouldn't happen
                 raise exceptions.CryptoError(errno=errors.ERR_SMP_CHECK_FAILED)
         except exceptions.CryptoError as ce:
-            self.smpRequestCallback(constants.SMP_CALLBACK_ERROR, self.remoteNick, '', ce.errno)
+            self.smpRequestCallback(constants.SMP_CALLBACK_ERROR, self.admin, '', ce.errno)
 
     def __doSMPStep1(self, payload):
         buffer = self.smp.step2(payload)
@@ -226,7 +225,7 @@ class GroupClient(Thread):
         self.smp.step5(payload)
 
         if self.__checkSMP():
-            self.smpRequestCallback(constants.SMP_CALLBACK_COMPLETE, self.remoteNick)
+            self.smpRequestCallback(constants.SMP_CALLBACK_COMPLETE, self.admin)
 
         # Destroy the SMP object now that we're done
         self.smp = None
