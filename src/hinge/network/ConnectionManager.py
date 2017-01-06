@@ -67,7 +67,7 @@ class ConnectionManager(object):
             self.errorCallback(nick, errors.ERR_ALREADY_CONNECTED)
             return
 
-        if nicks: # This would be a group chat
+        if isGroup: # This would be a group chat
             # The nicks list by default is only the original nick, so we need to add the others to it
             nicks.append(self.nick)
             nicks.append(nick)

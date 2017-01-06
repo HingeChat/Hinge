@@ -1,7 +1,7 @@
 import base64
 import Queue
 
-from src.hinge.crypto.Crypto import Crypto
+from src.hinge.crypto.CryptoUtils import CryptoUtils
 from src.hinge.crypto.smp import SMP
 
 from src.hinge.network.Message import Message
@@ -47,10 +47,9 @@ class GroupClient(Thread):
         self.incomingMessageNum = 0
         self.outgoingMessageNum = 0
         self.isEncrypted = False
-        self.wasHandshakeDone = False
         self.messageQueue = Queue.Queue()
 
-        self.crypto = Crypto()
+        self.crypto = CryptoUtils()
         self.crypto.generateDHKey()
         self.smp = None
 
@@ -95,9 +94,6 @@ class GroupClient(Thread):
 
     def run(self):
         self.group = self.__createSession(self.nicks)
-
-        if not self.wasHandshakeDone:
-            return
 
         while True:
             message = self.messageQueue.get()
@@ -150,75 +146,6 @@ class GroupClient(Thread):
         new = Session(nicks)
         self.sessions.append(new)
         return new
-
-    def __doHandshake(self):
-        try:
-            # The caller of this function (should) checks for the initial HELO command
-
-            # Send the ready command
-            self.sendMessage(constants.COMMAND_REDY)
-
-            # Receive the client's public key
-            clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
-            self.crypto.computeDHSecret(long(base64.b64decode(clientPublicKey)))
-
-            # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()))
-            self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
-
-            # Switch to AES encryption for the remainder of the connection
-            self.isEncrypted = True
-
-            self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, True)
-        except exceptions.ProtocolEnd:
-            self.disconnect()
-            self.connectionManager.destroyClient(self.remoteNick)
-        except (exceptions.ProtocolError, exceptions.CryptoError) as e:
-            self.__handleHandshakeError(e)
-
-    def __initiateHandshake(self):
-        try:
-            # Send the hello command
-            self.sendMessage(constants.COMMAND_HELO)
-
-            # Receive the redy command
-            self.__getHandshakeMessagePayload(constants.COMMAND_REDY)
-
-            # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()))
-            self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
-
-            # Receive the client's public key
-            clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
-            self.crypto.computeDHSecret(long(base64.b64decode(clientPublicKey)))
-
-            # Switch to AES encryption for the remainder of the connection
-            self.isEncrypted = True
-
-            self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, True)
-        except exceptions.ProtocolEnd:
-            self.disconnect()
-            self.connectionManager.destroyClient(self.remoteNick)
-        except (exceptions.ProtocolError, exceptions.CryptoError) as e:
-            self.__handleHandshakeError(e)
-
-    def __getHandshakeMessagePayload(self, expectedCommand):
-        message = self.messageQueue.get()
-
-        if message.clientCommand != expectedCommand:
-            if message.clientCommand == constants.COMMAND_END:
-                raise exceptions.ProtocolEnd
-            elif message.clientCommand == constants.COMMAND_REJECT:
-                raise exceptions.ProtocolError(errno=errors.ERR_CONNECTION_REJECTED)
-            else:
-                raise exceptions.ProtocolError(errno=errors.ERR_BAD_HANDSHAKE)
-
-        payload = self.__getDecryptedPayload(message)
-        self.messageQueue.task_done()
-
-        return payload
 
     def __getDecryptedPayload(self, message):
         if self.isEncrypted:
@@ -308,12 +235,3 @@ class GroupClient(Thread):
         if not self.smp.match:
             raise exceptions.CryptoError(errno=errors.ERR_SMP_MATCH_FAILED)
         return True
-
-    def __handleHandshakeError(self, exception):
-        self.errorCallback(self.remoteNick, exception.errno)
-
-        # For all errors except the connection being rejected, tell the client there was an error
-        if exception.errno != errors.ERR_CONNECTION_REJECTED:
-            self.sendMessage(constants.COMMAND_ERR)
-        else:
-            self.connectionManager.destroyClient(self.remoteNick)

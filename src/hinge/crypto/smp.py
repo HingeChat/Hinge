@@ -1,10 +1,8 @@
-import Crypto
-import M2Crypto
+import CryptoUtils
 import struct
 
 from src.hinge.utils import errors
 from src.hinge.utils import exceptions
-
 
 class SMP(object):
     def __init__(self, secret=None):
@@ -12,9 +10,8 @@ class SMP(object):
         self.modOrder = (self.mod-1) / 2
         self.gen = 2
         self.match = False
-        self.crypto = crypto.Crypto()
+        self.crypto = CryptoUtils.CryptoUtils()
         self.secret = self.crypto.mapStringToInt(secret)
-
 
     def step1(self):
         self.x2 = createRandomExponent()
@@ -28,7 +25,6 @@ class SMP(object):
 
         # Send g2a, g3a, c1, d1, c2, d2
         return packList(self.g2, self.g3, c1, d1, c2, d2)
-
 
     def step2(self, buffer):
         (g2a, g3a, c1, d1, c2, d2) = unpackList(buffer)
@@ -66,7 +62,6 @@ class SMP(object):
 
         # Sends g2b, g3b, pb, qb, all the c's and d's
         return packList(self.g2, self.g3, self.pb, self.qb, c3, d3, c4, d4, c5, d5, d6)
-
 
     def step3(self, buffer):
         (g2b, g3b, pb, qb, c3, d3, c4, d4, c5, d5, d6) = unpackList(buffer)
@@ -107,8 +102,6 @@ class SMP(object):
         # Sends pa, qa, ra, c6, d7, d8, c7, d9
         return packList(self.pa, self.qa, self.ra, c6, d7, d8, c7, d9)
 
-
-
     def step4(self, buffer):
         (pa, qa, ra, c6, d7, d8, c7, d9) = unpackList(buffer)
 
@@ -135,7 +128,6 @@ class SMP(object):
         # Send rb, c8, d10
         return packList(rb, c8, d10)
 
-
     def step5(self, buffer):
         (rb, c8, d10) = unpackList(buffer)
 
@@ -151,20 +143,17 @@ class SMP(object):
         if rab == mulm(self.pa, inv, self.mod):
             self.match = True
 
-
     def createLogProof(self, version, x):
         randExponent = createRandomExponent()
         c = self.hash(version + str(pow(self.gen, randExponent, self.mod)))
         d = subm(randExponent, mulm(x, c, self.modOrder), self.modOrder)
         return (c, d)
 
-
     def checkLogProof(self, version, g, c, d):
         gd = pow(self.gen, d, self.mod)
         gc = pow(g, c, self.mod)
         gdgc = gd * gc % self.mod
         return (self.hash(version + str(gdgc)) == c)
-
 
     def createCoordsProof(self, version, g2, g3, r):
         r1 = createRandomExponent()
@@ -180,7 +169,6 @@ class SMP(object):
 
         return (c, d1, d2)
 
-
     def checkCoordsProof(self, version, c, d1, d2, g2, g3, p, q):
         tmp1 = mulm(pow(g3, d1, self.mod), pow(p, c, self.mod), self.mod)
         tmp2 = mulm(mulm(pow(self.gen, d1, self.mod), pow(g2, d2, self.mod), self.mod), pow(q, c, self.mod), self.mod)
@@ -188,7 +176,6 @@ class SMP(object):
         cprime = self.hash(version + str(tmp1) + str(tmp2))
 
         return (c == cprime)
-
 
     def createEqualLogsProof(self, version, qa, qb, x):
         r = createRandomExponent()
@@ -202,7 +189,6 @@ class SMP(object):
 
         return (c, d)
 
-
     def checkEqualLogs(self, version, c, d, g3, qab, r):
         tmp1 = mulm(pow(self.gen, d, self.mod), pow(g3, c, self.mod), self.mod)
         tmp2 = mulm(pow(qab, d, self.mod), pow(r, c, self.mod), self.mod)
@@ -211,19 +197,14 @@ class SMP(object):
 
         return (c == cprime)
 
-
     def invm(self, x):
         return pow(x, self.mod-2, self.mod)
-
 
     def isValidArgument(self, val):
         return (val >= 2 and val <= self.mod-2)
 
-
     def hash(self, message):
         return long(self.crypto.stringHash(message), 16)
-
-
 
 def packList(*items):
     buffer = ''
@@ -234,7 +215,6 @@ def packList(*items):
         buffer += struct.pack('!I', len(bytes)) + bytes
 
     return buffer
-
 
 def unpackList(buffer):
     items = []
@@ -252,14 +232,12 @@ def unpackList(buffer):
 
     return items
 
-
 def bytesToLong(bytes):
     length = len(bytes)
     string = 0
     for i in range(length):
         string += byteToLong(bytes[i:i+1]) << 8*(length-i-1)
     return string
-
 
 def longToBytes(long):
     bytes = ''
@@ -268,22 +246,18 @@ def longToBytes(long):
         long >>= 8
     return bytes
 
-
 def byteToLong(byte):
     return struct.unpack('B', byte)[0]
-
 
 def longToByte(long):
     return struct.pack('B', long)
 
-
 def mulm(x, y, mod):
     return x * y % mod
-
 
 def subm(x, y, mod):
     return (x - y) % mod
 
-
 def createRandomExponent():
-    return crypto.binToDec(M2Crypto.Rand.rand_bytes(192))
+    bytes = CryptoUtils.CryptoUtils().getRandomBytes(192)
+    return CryptoUtils.binToDec(bytes)

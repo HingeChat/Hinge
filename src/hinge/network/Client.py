@@ -1,7 +1,7 @@
 import base64
 import Queue
 
-from src.hinge.crypto.Crypto import Crypto
+from src.hinge.crypto.CryptoUtils import CryptoUtils
 from src.hinge.crypto.smp import SMP
 
 from src.hinge.network.Message import Message
@@ -33,7 +33,7 @@ class Client(Thread):
         self.wasHandshakeDone = False
         self.messageQueue = Queue.Queue()
 
-        self.crypto = Crypto()
+        self.crypto = CryptoUtils()
         self.crypto.generateDHKey()
         self.smp = None
 

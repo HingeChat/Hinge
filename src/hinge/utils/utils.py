@@ -7,7 +7,6 @@ import errors
 from time import localtime
 from time import strftime
 
-
 def isValidNick(nick):
     if nick == "":
         return errors.INVALID_EMPTY_NICK
@@ -17,10 +16,8 @@ def isValidNick(nick):
         return errors.INVALID_NICK_LENGTH
     return errors.VALID_NICK
 
-
 def getTimestamp():
     return strftime('%H:%M:%S', localtime())
-
 
 def getAbsoluteResourcePath(relativePath):
     try:
@@ -45,7 +42,6 @@ def getAbsoluteResourcePath(relativePath):
         return None
 
     return path
-
 
 def secureStrcmp(left, right):
     equal = True
