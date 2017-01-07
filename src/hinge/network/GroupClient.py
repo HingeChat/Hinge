@@ -1,5 +1,5 @@
 import base64
-import Queue
+import queue
 
 from src.hinge.crypto.CryptoUtils import CryptoUtils
 from src.hinge.crypto.smp import SMP
@@ -24,7 +24,7 @@ class Session(object):
 
     def recvMessage(self, src, msg):
         if src.name in self.nicks:
-            print("Received message : {0}: {1}".format(src.name, msg))
+            print(("Received message : {0}: {1}".format(src.name, msg)))
 
 class GroupClient(Thread):
     def __init__(self, connectionManager, admin, nicks, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback):
@@ -45,7 +45,7 @@ class GroupClient(Thread):
         self.incomingMessageNum = 0
         self.outgoingMessageNum = 0
         self.isEncrypted = False
-        self.messageQueue = Queue.Queue()
+        self.messageQueue = queue.Queue()
 
         self.crypto = CryptoUtils()
         self.crypto.generateDHKey()

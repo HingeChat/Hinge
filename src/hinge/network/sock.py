@@ -53,7 +53,6 @@ class Socket(object):
         # Send the actual data
         self._send(data, dataLength)
 
-
     def _send(self, data, length):
         sentLen = 0
         while sentLen < length:
@@ -69,7 +68,6 @@ class Socket(object):
 
             sentLen += amountSent
 
-
     def recv(self):
         # Receive the length of the incoming message (unpack the binary data)
         dataLength = socket.ntohl(struct.unpack("I", self._recv(4))[0])
@@ -77,25 +75,23 @@ class Socket(object):
         # Receive the actual data
         return self._recv(dataLength)
 
-
     def _recv(self, length):
         try:
             data = ''
             recvLen = 0
             while recvLen < length:
-                newData = self.sock.recv(length-recvLen)
+                newData = self.sock.recv(length - recvLen)
 
                 if newData == '':
                     self.isConnected = False
                     raise exceptions.NetworkError(errors.CLOSE_CONNECTION, errno=errors.ERR_CLOSED_CONNECTION)
 
-                data = data + newData
+                data += str(newData)
                 recvLen += len(newData)
 
-            return data
+            return bytes(data, "UTF-8")
         except socket.error as se:
             raise exceptions.NetworkError(str(se))
-
 
     def getHostname(self):
         return self.addr[0]
