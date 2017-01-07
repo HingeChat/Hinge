@@ -71,20 +71,23 @@ class ConnectionManager(object):
         self.clients[nick] = self.client
         self.client.start()
 
-    def openGroupChat(self, originalNick, nicks=[]):
-        self.__createGroupClient(originalNick, nicks)
+    def openGroupChat(self, originalNick, nicks=[], sender=False):
+        self.__createGroupClient(originalNick, nicks, sender)
 
-    def __createGroupClient(self, admin, nicks):
+    def __createGroupClient(self, admin, nicks, sender):
         if type(admin) is not str:
             raise TypeError
         if type(nicks) is not list:
             raise TypeError
 
-        self.groupClient = GroupClient(self, admin, nicks, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback, initiateHandshakeOnStart)
+        self.groupClient = GroupClient(self, admin, nicks, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback)
 
         for nick in nicks:
             self.clients[nick] = self.groupClient
         self.groupClient.start()
+
+        if sender:
+            self.sendMessage(Message(destNicks=nicks), True)
 
     def addClient(self, nick):
         self.clients[nick] = self.groupClient
@@ -125,9 +128,9 @@ class ConnectionManager(object):
         # Send a commend intended for the server, not another client (such as registering a nick)
         self.sendThread.messageQueue.put(Message(serverCommand=command, sourceNick=self.nick, payload=payload))
 
-    def sendMessage(self, message, recentlyAdded=False):
-        if recentlyAdded:
-            message.serverCommand = constants.COMMAND_MAKEGROUP
+    def sendMessage(self, message, sender=False):
+        if sender:
+            message.clientCommand = constants.COMMAND_ADD
             message.sourceNick = self.nick
             self.sendThread.messageQueue.put(message)
         else:
@@ -156,7 +159,8 @@ class ConnectionManager(object):
         elif message.serverCommand == constants.COMMAND_END:
             self.errorCallback('', int(message.error))
             return
-        elif message.serverCommand == constants.COMMAND_MAKEGROUP:
+
+        if command == constants.COMMAND_ADD:
             for nick in destNicks:
                 self.openChat(nick)
             return
@@ -173,7 +177,7 @@ class ConnectionManager(object):
 
     def newClientAccepted(self, nick, isGroup=False, nicks=[]):
         if isGroup:
-            self.__createGroupClient(nick, nicks)
+            self.__createGroupClient(nick, nicks, False)
         else:
             self.__createClient(nick)
 

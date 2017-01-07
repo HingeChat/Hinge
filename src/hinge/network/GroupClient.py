@@ -27,7 +27,7 @@ class Session(object):
             print("Received message : {0}: {1}".format(src.name, msg))
 
 class GroupClient(Thread):
-    def __init__(self, connectionManager, admin, nicks, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False):
+    def __init__(self, connectionManager, admin, nicks, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback):
         Thread.__init__(self)
         self.daemon = True
 
@@ -39,7 +39,6 @@ class GroupClient(Thread):
         self.handshakeDoneCallback = handshakeDoneCallback
         self.smpRequestCallback = smpRequestCallback
         self.errorCallback = errorCallback
-        self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
 
         self.sessions = []
 
@@ -128,9 +127,6 @@ class GroupClient(Thread):
 
     def sendMessagee(self, dest, data):
         dest.recvMessage(self, data)
-
-    def connect(self):
-        self.__initiateHandshake()
 
     def disconnect(self):
         try:

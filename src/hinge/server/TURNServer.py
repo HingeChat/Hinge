@@ -208,23 +208,6 @@ class RecvThread(Thread):
                     printAndLog("%s: requested to end connection" % self.nick)
                     nickMap[self.nick].disconnect()
                     return
-                elif message.serverCommand == constants.COMMAND_MAKEGROUP:
-                    printAndLog("%s: requested to create group chat with nicks %s" % self.nick % message.destNicks)
-
-                    destNicks = message.destNicks
-                    for nick in destNicks:
-                        # Validate the destination nicks
-                        if utils.isValidNick(nick) != errors.VALID_NICK:
-                            printAndLog("%s: requested to send message to invalid nick" % self.nick)
-                            self.__handleError(errors.ERR_INVALID_NICK)
-
-                        client = nickMap[nick.lower()]
-
-                        # Rewrite the source nick to prevent nick spoofing
-                        message.sourceNick = self.nick
-
-                        client.send(message)
-                    return
                 elif message.serverCommand != constants.COMMAND_RELAY:
                     printAndLog("%s: sent invalid command" % self.nick)
                     self.__handleError(errors.ERR_INVALID_COMMAND)
