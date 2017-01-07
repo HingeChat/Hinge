@@ -172,7 +172,10 @@ class ConnectionManager(object):
                 self.sendMessage(Message(clientCommand=constants.COMMAND_ERR, error=errors.INVALID_COMMAND))
 
     def newClientAccepted(self, nick, isGroup=False, nicks=[]):
-        self.__createClient(nick, nicks, isGroup=isGroup, sender=False)
+        if isGroup:
+            self.__createGroupClient(nick, nicks)
+        else:
+            self.__createClient(nick)
 
     def newClientRejected(self, nick):
         # If rejected, send the rejected command to the client
