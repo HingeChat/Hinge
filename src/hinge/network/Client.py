@@ -134,7 +134,7 @@ class Client(Thread):
             self.crypto.computeDHSecret(int(base64.b64decode(clientPublicKey)))
 
             # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()))
+            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode('ascii'))
             self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
 
             # Switch to AES encryption for the remainder of the connection
@@ -157,7 +157,7 @@ class Client(Thread):
             self.__getHandshakeMessagePayload(constants.COMMAND_REDY)
 
             # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode('ascii'))
+            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode())
             self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
 
             # Receive the client's public key
