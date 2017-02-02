@@ -7,7 +7,7 @@ class Message(object):
         self.serverCommand = str(serverCommand)
         self.clientCommand = str(clientCommand)
         self.sourceNick    = str(sourceNick)
-        self.destNicks    = list(destNicks)
+        self.destNicks     = list(destNicks)
         self.payload       = str(payload)
         self.hmac          = str(hmac)
         self.error         = str(error)

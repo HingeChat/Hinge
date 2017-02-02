@@ -157,7 +157,7 @@ class Client(Thread):
             self.__getHandshakeMessagePayload(constants.COMMAND_REDY)
 
             # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()))
+            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode('ascii'))
             self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
 
             # Receive the client's public key
