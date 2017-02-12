@@ -15,6 +15,9 @@ class Message(object):
         self.isGroup       = bool(isGroup)
 
     def __str__(self):
+        # Hack for JSON encoding
+        if hasattr(self.payload, "decode"):
+            self.payload = self.payload.decode()
         return json.dumps({'serverCommand': self.serverCommand, 'clientCommand': self.clientCommand,
                            'sourceNick': self.sourceNick, 'destNicks': self.destNicks,
                            'payload': self.payload, 'hmac': self.hmac, 'error': self.error, 'num': self.num,

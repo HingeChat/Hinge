@@ -52,7 +52,8 @@ class Client(Thread):
             message.setEncryptedPayload(payload)
 
             # Generate and set the HMAC for the message
-            message.setBinaryHmac(self.crypto.generateHmac(payload))
+            hmac = self.crypto.generateHmac(payload)
+            message.setBinaryHmac(hmac)
 
             # Encrypt the message number of the message
             message.setBinaryMessageNum(self.crypto.aesEncrypt(str(self.outgoingMessageNum)))
@@ -131,6 +132,7 @@ class Client(Thread):
 
             # Receive the client's public key
             clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
+            clientPublicKey = clientPublicKey.encode() # The key would've been decoded while being sent as JSON hates encoding
             self.crypto.computeDHSecret(int(base64.b64decode(clientPublicKey)))
 
             # Send our public key

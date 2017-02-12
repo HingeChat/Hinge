@@ -52,6 +52,8 @@ class CryptoUtils(object):
         return hmac
 
     def hash(self, message):
+        if hasattr(message, "encode"): # Hack
+            message = message.encode() # For some reason this might not be encoded
         hash = SHA256.new(message).digest()
         return hash
 
