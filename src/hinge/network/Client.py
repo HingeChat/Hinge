@@ -105,7 +105,6 @@ class Client(Thread):
 
             # Decrypt the incoming data
             payload = self.__getDecryptedPayload(message)
-            payload = payload.decode()
 
             self.messageQueue.task_done()
 
@@ -113,6 +112,7 @@ class Client(Thread):
             if command in constants.SMP_COMMANDS:
                self.__handleSMPCommand(command, payload)
             else:
+                payload = payload.decode()
                 self.recvMessageCallback(command, message.sourceNick, payload, False)
 
     def connect(self):
@@ -234,6 +234,7 @@ class Client(Thread):
         try:
             if command == constants.COMMAND_SMP_0:
                 # Fire the SMP request callback with the given question
+                payload = payload.decode()
                 self.smpRequestCallback(constants.SMP_CALLBACK_REQUEST, self.remoteNick, payload)
             elif command == constants.COMMAND_SMP_1:
                 # If there's already an smp object, go ahead to step 1.
