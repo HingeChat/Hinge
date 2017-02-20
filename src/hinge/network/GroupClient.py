@@ -120,6 +120,7 @@ class GroupClient(Thread):
             if command in constants.SMP_COMMANDS:
                self.__handleSMPCommand(command, payload)
             else:
+                payload = payload.decode()
                 if command == constants.COMMAND_MSG:
                     if hasattr(self, 'group'):
                         self.sendMessagee(self.group, payload)
@@ -182,6 +183,7 @@ class GroupClient(Thread):
         try:
             if command == constants.COMMAND_SMP_0:
                 # Fire the SMP request callback with the given question
+                payload = payload.decode()
                 self.smpRequestCallback(constants.SMP_CALLBACK_REQUEST, self.admin, payload)
             elif command == constants.COMMAND_SMP_1:
                 # If there's already an smp object, go ahead to step 1.
