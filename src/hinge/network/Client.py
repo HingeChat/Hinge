@@ -105,6 +105,7 @@ class Client(Thread):
 
             # Decrypt the incoming data
             payload = self.__getDecryptedPayload(message)
+            payload = payload.decode()
 
             self.messageQueue.task_done()
 

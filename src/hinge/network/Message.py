@@ -27,19 +27,19 @@ class Message(object):
         return base64.b64decode(self.payload)
 
     def setEncryptedPayload(self, payload):
-        self.payload = str(base64.b64encode(payload))
+        self.payload = base64.b64encode(payload).decode()
 
     def getHmacAsBinaryString(self):
         return base64.b64decode(self.hmac)
 
     def setBinaryHmac(self, hmac):
-        self.hmac = str(base64.b64encode(hmac))
+        self.hmac = base64.b64encode(hmac).decode()
 
     def getMessageNumAsBinaryString(self):
         return base64.b64decode(self.num)
 
     def setBinaryMessageNum(self, num):
-        self.num = str(base64.b64encode(num))
+        self.num = base64.b64encode(num).decode()
 
     @staticmethod
     def createFromJSON(jsonStr):

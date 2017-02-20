@@ -12,8 +12,6 @@ class CryptoUtils(object):
     dhGenerator = 2
 
     def __init__(self):
-        self.localKeypair   = None
-        self.remoteKeypair  = None
         self.aesKey         = None
         self.aesIv          = None
         self.aesSalt        = None
@@ -71,57 +69,25 @@ class CryptoUtils(object):
 
         return num
 
-    def getKeypairAsString(self, passphrase):
-        self._keypairPassphrase = passphrase
-        return self.localKeypair.as_pem(self.aesMode, self.__passphraseCallback)
-
-    def __generateFingerprint(self, key):
-        digest = self.stringHash(key)
-
-        # Add colons between every 2 characters of the fingerprint
-        fingerprint = ''
-        digestLength = len(digest)
-        for i in range(0, digestLength):
-            fingerprint += digest[i]
-            if i&1 and i != 0 and i != digestLength-1:
-                fingerprint += ':'
-        return fingerprint
-
     def __octx_to_num(self, data):
         converted = 0
         length = len(data)
         for i in range(length):
-            converted = converted + ord(data[i]) * (256 ** (length - i - 1))
+            converted = converted + data[i] * (256 ** (length - i - 1))
         return converted
 
     def getDHPubKey(self):
         return self.dh.pub_key
 
-    def __checkLocalKeypair(self):
-        if self.localKeypair is None:
-            raise exceptions.CryptoError("Local keypair not set.")
-
-    def __checkRemoteKeypair(self):
-        if self.remoteKeypair is None:
-            raise exceptions.CryptoError("Remote public key not set.")
-
-    def __passphraseCallback(self, ignore, prompt1=None, prompt2=None):
-        return self._keypairPassphrase
-
     def _pad(self, s, bs):
-        return s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
+        if hasattr(s, "encode"): # Hack
+            s = s.encode()
+        return s + (bs - len(s) % bs) * bytes([bs - len(s) % bs])
 
     @staticmethod
     def _unpad(s):
         return s[:-ord(s[len(s)-1:])]
 
 def binToDec(binval):
-    multi = 1
-    dec = 0
-    for item in binval[::-1]:
-        if item=='1':
-            dec=dec+multi
-        multi=multi*2
     import binascii
-    hex = binascii.hexlify(str(dec))
-    return int(hex, 16)
+    return int(binascii.hexlify(binval), 16)
