@@ -42,9 +42,13 @@ class Socket(object):
 
 
     def send(self, data):
-        if type(data) is not str:
+        if not isinstance(data, str): # <-- Prefered method
+            # if type(data) is not str:
             raise TypeError()
 
+        data = data.encode('utf-8') # <-- Convert to bytes
+
+        # Get size of bytes
         dataLength = len(data)
 
         # Send the length of the message (int converted to network byte order and packed as binary data)
@@ -52,7 +56,6 @@ class Socket(object):
 
         # Send the actual data
         self._send(data, dataLength)
-
 
     def _send(self, data, length):
         sentLen = 0
@@ -69,23 +72,22 @@ class Socket(object):
 
             sentLen += amountSent
 
-
     def recv(self):
         # Receive the length of the incoming message (unpack the binary data)
         dataLength = socket.ntohl(struct.unpack("I", self._recv(4))[0])
 
         # Receive the actual data
-        return self._recv(dataLength)
-
+        return self._recv(dataLength).decode('utf-8') # <-- Convert to string again
 
     def _recv(self, length):
         try:
-            data = ''
+            data = b'' # <-- Use bytes
             recvLen = 0
             while recvLen < length:
                 newData = self.sock.recv(length-recvLen)
 
-                if newData == '':
+                #if newData == b'': # <-- Use bytes
+                if not newData:    # <-- or
                     self.isConnected = False
                     raise exceptions.NetworkError(errors.CLOSE_CONNECTION, errno=errors.ERR_CLOSED_CONNECTION)
 
@@ -95,7 +97,6 @@ class Socket(object):
             return data
         except socket.error as se:
             raise exceptions.NetworkError(str(se))
-
 
     def getHostname(self):
         return self.addr[0]

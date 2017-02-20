@@ -1,5 +1,5 @@
 import base64
-import Queue
+import queue
 
 from src.hinge.crypto.CryptoUtils import CryptoUtils
 from src.hinge.crypto.smp import SMP
@@ -31,7 +31,7 @@ class Client(Thread):
         self.outgoingMessageNum = 0
         self.isEncrypted = False
         self.wasHandshakeDone = False
-        self.messageQueue = Queue.Queue()
+        self.messageQueue = queue.Queue()
 
         self.crypto = CryptoUtils()
         self.crypto.generateDHKey()
@@ -52,7 +52,8 @@ class Client(Thread):
             message.setEncryptedPayload(payload)
 
             # Generate and set the HMAC for the message
-            message.setBinaryHmac(self.crypto.generateHmac(payload))
+            hmac = self.crypto.generateHmac(payload)
+            message.setBinaryHmac(hmac)
 
             # Encrypt the message number of the message
             message.setBinaryMessageNum(self.crypto.aesEncrypt(str(self.outgoingMessageNum)))
@@ -111,6 +112,7 @@ class Client(Thread):
             if command in constants.SMP_COMMANDS:
                self.__handleSMPCommand(command, payload)
             else:
+                payload = payload.decode()
                 self.recvMessageCallback(command, message.sourceNick, payload, False)
 
     def connect(self):
@@ -131,10 +133,11 @@ class Client(Thread):
 
             # Receive the client's public key
             clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
-            self.crypto.computeDHSecret(long(base64.b64decode(clientPublicKey)))
+            clientPublicKey = clientPublicKey.encode() # The key would've been decoded while being sent as JSON hates encoding
+            self.crypto.computeDHSecret(int(base64.b64decode(clientPublicKey)))
 
             # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()))
+            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode('ascii'))
             self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
 
             # Switch to AES encryption for the remainder of the connection
@@ -157,12 +160,12 @@ class Client(Thread):
             self.__getHandshakeMessagePayload(constants.COMMAND_REDY)
 
             # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()))
+            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode())
             self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
 
             # Receive the client's public key
             clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
-            self.crypto.computeDHSecret(long(base64.b64decode(clientPublicKey)))
+            self.crypto.computeDHSecret(int(base64.b64decode(clientPublicKey)))
 
             # Switch to AES encryption for the remainder of the connection
             self.isEncrypted = True
@@ -231,6 +234,7 @@ class Client(Thread):
         try:
             if command == constants.COMMAND_SMP_0:
                 # Fire the SMP request callback with the given question
+                payload = payload.decode()
                 self.smpRequestCallback(constants.SMP_CALLBACK_REQUEST, self.remoteNick, payload)
             elif command == constants.COMMAND_SMP_1:
                 # If there's already an smp object, go ahead to step 1.

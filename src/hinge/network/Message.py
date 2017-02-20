@@ -7,7 +7,7 @@ class Message(object):
         self.serverCommand = str(serverCommand)
         self.clientCommand = str(clientCommand)
         self.sourceNick    = str(sourceNick)
-        self.destNicks    = list(destNicks)
+        self.destNicks     = list(destNicks)
         self.payload       = str(payload)
         self.hmac          = str(hmac)
         self.error         = str(error)
@@ -15,6 +15,9 @@ class Message(object):
         self.isGroup       = bool(isGroup)
 
     def __str__(self):
+        # Hack for JSON encoding
+        if hasattr(self.payload, "decode"):
+            self.payload = self.payload.decode()
         return json.dumps({'serverCommand': self.serverCommand, 'clientCommand': self.clientCommand,
                            'sourceNick': self.sourceNick, 'destNicks': self.destNicks,
                            'payload': self.payload, 'hmac': self.hmac, 'error': self.error, 'num': self.num,
@@ -24,19 +27,19 @@ class Message(object):
         return base64.b64decode(self.payload)
 
     def setEncryptedPayload(self, payload):
-        self.payload = str(base64.b64encode(payload))
+        self.payload = base64.b64encode(payload).decode()
 
     def getHmacAsBinaryString(self):
         return base64.b64decode(self.hmac)
 
     def setBinaryHmac(self, hmac):
-        self.hmac = str(base64.b64encode(hmac))
+        self.hmac = base64.b64encode(hmac).decode()
 
     def getMessageNumAsBinaryString(self):
         return base64.b64decode(self.num)
 
     def setBinaryMessageNum(self, num):
-        self.num = str(base64.b64encode(num))
+        self.num = base64.b64encode(num).decode()
 
     @staticmethod
     def createFromJSON(jsonStr):
