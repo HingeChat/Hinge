@@ -66,7 +66,7 @@ class TURNServer(object):
         printAndLog("Requested to stop server")
 
         for nick, client in nickMap.items():
-            client.send(Message(serverCommand=constants.COMMAND_END, destNick=nick, error=errors.ERR_SERVER_SHUTDOWN))
+            client.send(Message(serverCommand=constants.COMMAND_END, destNicks=[nick], error=errors.ERR_SERVER_SHUTDOWN))
 
         # Give the send threads time to get their messages out
         time.sleep(.25)

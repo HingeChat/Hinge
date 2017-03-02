@@ -15,7 +15,9 @@ from src.hinge.utils import exceptions
 from src.hinge.utils import errors
 from src.hinge.utils import utils
 
+
 class ConnectionManager(object):
+    
     def __init__(self, nick, serverAddr, recvMessageCallback, newClientCallback, handshakeDoneCallback, smpRequestCallback, errorCallback):
         self.clients = {}
         self.groupClients = {}
@@ -72,22 +74,18 @@ class ConnectionManager(object):
         self.client.start()
 
     def openGroupChat(self, originalNick, nicks=[], sender=False):
-        self.__createGroupClient(originalNick, nicks, sender)
+        self.__createGroupClient(originalNick, nicks, True)
 
     def __createGroupClient(self, admin, nicks, sender):
-        if type(admin) is not str:
+        if isinstance(admin, str) and isinstance(nicks, list):
+            self.groupClient = GroupClient(self, admin, nicks, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback)
+            for nick in nicks:
+                self.clients[nick] = self.groupClient
+            self.groupClient.start()
+            if sender:
+                self.sendMessage(Message(destNicks=nicks, isGroup=True), True)
+        else:
             raise TypeError
-        if type(nicks) is not list:
-            raise TypeError
-
-        self.groupClient = GroupClient(self, admin, nicks, self.sendMessage, self.recvMessageCallback, self.handshakeDoneCallback, self.smpRequestCallback, self.errorCallback)
-
-        for nick in nicks:
-            self.clients[nick] = self.groupClient
-        self.groupClient.start()
-
-        if sender:
-            self.sendMessage(Message(destNicks=nicks), True)
 
     def addClient(self, nick):
         self.clients[nick] = self.groupClient
@@ -98,7 +96,7 @@ class ConnectionManager(object):
             return
 
         # Send the end command to the client
-        self.sendMessage(Message(clientCommand=constants.COMMAND_END, destNick=nick))
+        self.sendMessage(Message(clientCommand=constants.COMMAND_END, destNicks=[nick]))
 
         # Remove the client from the clients list
         self.destroyClient(nick)
@@ -132,11 +130,9 @@ class ConnectionManager(object):
         if sender:
             message.clientCommand = constants.COMMAND_ADD
             message.sourceNick = self.nick
-            self.sendThread.messageQueue.put(message)
-        else:
-            message.serverCommand = constants.COMMAND_RELAY
-            message.sourceNick = self.nick
-            self.sendThread.messageQueue.put(message)
+        message.serverCommand = constants.COMMAND_RELAY
+        message.sourceNick = self.nick
+        self.sendThread.messageQueue.put(message)
 
     def recvMessage(self, message):
         command  = message.clientCommand
@@ -162,7 +158,8 @@ class ConnectionManager(object):
 
         if command == constants.COMMAND_ADD:
             for nick in destNicks:
-                self.openChat(nick)
+                # Should open a group chat, currently opens a regular chat
+                self.newClientAccepted(nick)
             return
 
         # Send the payload to its intended client
@@ -188,7 +185,9 @@ class ConnectionManager(object):
     def respondSMP(self, nick, answer):
         self.clients[nick].respondSMP(answer)
 
+
 class RecvThread(Thread):
+    
     def __init__(self, sock, recvCallback, errorCallback):
         Thread.__init__(self)
         self.daemon = True
@@ -210,7 +209,9 @@ class RecvThread(Thread):
                     self.errorCallback('', errors.ERR_NETWORK_ERROR)
                 return
 
+
 class SendThread(Thread):
+    
     def __init__(self, sock, errorCallback):
         Thread.__init__(self)
         self.daemon = True
