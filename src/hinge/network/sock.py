@@ -1,35 +1,31 @@
 import socket
 import struct
 
-from src.hinge.utils import errors
-from src.hinge.utils import exceptions
+from src.hinge.utils import *
 
 
 class Socket(object):
+    
     def __init__(self, addr, sock=None):
         self.addr = addr
         self.sock = sock
-
-        # Create a new socket if one was not given
+        # Create a new socket if not provided
         if sock is None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.isConnected = False
+            self.connected = False
         else:
             self.sock = sock
-            self.isConnected = True
-
+            self.connected = True
 
     def __str__(self):
         return self.addr[0] + ':' + str(self.addr[1])
 
-
     def connect(self):
         try:
             self.sock.connect(self.addr)
-            self.isConnected = True
+            self.connected = True
         except socket.error as se:
-            raise exceptions.GenericError(str(se))
-
+            raise GenericError(str(se))
 
     def disconnect(self):
         try:
@@ -38,65 +34,55 @@ class Socket(object):
         except Exception as e:
             pass
         finally:
-            self.isConnected = False
-
+            self.connected = False
 
     def send(self, data):
-        if not isinstance(data, str): # <-- Prefered method
-            # if type(data) is not str:
+        if not isinstance(data, str):
             raise TypeError()
-
-        data = data.encode('utf-8') # <-- Convert to bytes
-
-        # Get size of bytes
-        dataLength = len(data)
-
-        # Send the length of the message (int converted to network byte order and packed as binary data)
-        self._send(struct.pack("I", socket.htonl(dataLength)), 4)
-
-        # Send the actual data
-        self._send(data, dataLength)
+        else:
+            data = data.encode('utf-8')
+            size = len(data)
+            # Send the length of the message
+            self._send(struct.pack("I", socket.htonl(size)), 4)
+            # Send the actual data
+            self._send(data, size)
 
     def _send(self, data, length):
-        sentLen = 0
-        while sentLen < length:
+        sent_size = 0
+        while sent_size < length:
             try:
-                amountSent = self.sock.send(data[sentLen:])
+                amount_sent = self.sock.send(data[sent_size:])
             except Exception:
-                self.isConnected = False
-                raise exceptions.NetworkError(errors.UNEXPECTED_CLOSE_CONNECTION)
+                self.connected = False
+                raise NetworkError(UNEXPECTED_CLOSE_CONNECTION)
 
-            if amountSent == 0:
-                self.isConnected = False
-                raise exceptions.NetworkError(errors.UNEXPECTED_CLOSE_CONNECTION)
+            if amount_sent == 0:
+                self.connected = False
+                raise NetworkError(UNEXPECTED_CLOSE_CONNECTION)
 
-            sentLen += amountSent
+            sent_size += amount_sent
 
     def recv(self):
-        # Receive the length of the incoming message (unpack the binary data)
-        dataLength = socket.ntohl(struct.unpack("I", self._recv(4))[0])
-
-        # Receive the actual data
-        return self._recv(dataLength).decode('utf-8') # <-- Convert to string again
+        # Receive length of the incoming message
+        size = socket.ntohl(struct.unpack("I", self._recv(4))[0])
+        # Receive data
+        return self._recv(size).decode('utf-8')
 
     def _recv(self, length):
         try:
-            data = b'' # <-- Use bytes
-            recvLen = 0
-            while recvLen < length:
-                newData = self.sock.recv(length-recvLen)
-
-                #if newData == b'': # <-- Use bytes
-                if not newData:    # <-- or
-                    self.isConnected = False
-                    raise exceptions.NetworkError(errors.CLOSE_CONNECTION, errno=errors.ERR_CLOSED_CONNECTION)
-
-                data = data + newData
-                recvLen += len(newData)
-
+            data = b''
+            recv_size = 0
+            while recv_size < length:
+                new_data = self.sock.recv(length - recv_size)
+                if not new_data:
+                    self.connected = False
+                    raise NetworkError(CLOSE_CONNECTION)
+                else:
+                    data += new_data
+                    recv_size += len(new_data)
             return data
         except socket.error as se:
-            raise exceptions.NetworkError(str(se))
+            raise NetworkError(str(se))
 
     def getHostname(self):
         return self.addr[0]

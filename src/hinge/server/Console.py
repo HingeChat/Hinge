@@ -1,15 +1,13 @@
 import os
 import signal
+import threading
 
-from threading import Thread
 
-class Console(Thread):
-    def __init__(self, nickMap, ipMap):
-        Thread.__init__(self)
+class Console(threading.Thread):
 
-        self.nickMap = nickMap
-        self.ipMap = ipMap
-
-        self.daemon = True
-
+    def __init__(self, nick_map, ip_map):
+        threading.Thread.__init__(self, daemon=True)
+        
+        self.nick_map = nick_map
+        self.ip_map = ip_map
         self.commands = {}

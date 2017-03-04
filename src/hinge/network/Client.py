@@ -1,294 +1,185 @@
-import base64
 import queue
+import socket
+import sys
+import traceback
+import threading
 
-from src.hinge.crypto.CryptoUtils import CryptoUtils
-from src.hinge.crypto.smp import SMP
-
+from src.hinge.network import HingeObject
+from src.hinge.network import PrivateSession
 from src.hinge.network.Message import Message
+from src.hinge.network.sock import Socket
+from src.hinge.utils import *
 
-from threading import Thread
 
-from src.hinge.utils import constants
-from src.hinge.utils import errors
-from src.hinge.utils import exceptions
-from src.hinge.utils import utils
+class Client(HingeObject.HingeObject):
+    
+    def __init__(self, nick, server_addr, callbacks):
+        HingeObject.HingeObject.__init__(self)
 
-class Client(Thread):
-    def __init__(self, connectionManager, remoteNick, sendMessageCallback, recvMessageCallback, handshakeDoneCallback, smpRequestCallback, errorCallback, initiateHandkshakeOnStart=False):
-        Thread.__init__(self)
-        self.daemon = True
+        self.sessions = {}
+        self.nick = nick
+        self.sock = Socket(server_addr)
 
-        self.connectionManager = connectionManager
-        self.remoteNick = remoteNick
-        self.sendMessageCallback = sendMessageCallback
-        self.recvMessageCallback = recvMessageCallback
-        self.handshakeDoneCallback = handshakeDoneCallback
-        self.smpRequestCallback = smpRequestCallback
-        self.errorCallback = errorCallback
-        self.initiateHandkshakeOnStart = initiateHandkshakeOnStart
+        self.callbacks = callbacks
 
-        self.incomingMessageNum = 0
-        self.outgoingMessageNum = 0
-        self.isEncrypted = False
-        self.wasHandshakeDone = False
-        self.messageQueue = queue.Queue()
+        self.message_queue = queue.Queue()
+        self.send_thread = SendThread(self.sock, self.callbacks['err'])
+        self.recv_thread = RecvThread(self.sock, self.recvMessage, self.callbacks['err'])
 
-        self.crypto = CryptoUtils()
-        self.crypto.generateDHKey()
-        self.smp = None
+    def __sendProtocolVersion(self):
+        self.__sendServerCommand(COMMAND_VERSION, PROTOCOL_VERSION)
 
-    def sendChatMessage(self, text):
-        self.sendMessage(constants.COMMAND_MSG, text)
+    def __sendServerCommand(self, command, data=''):
+        self.send_thread.message_queue.put(Message(**{
+            'command': command,
+            'route': (self.id, 0),
+            'data': data,
+        }))
 
-    def sendTypingMessage(self, status):
-        self.sendMessage(constants.COMMAND_TYPING, str(status))
+    def __registerNick(self):
+        self.__sendServerCommand(COMMAND_REGISTER, self.nick)
 
-    def sendMessage(self, command, payload=None):
-        message = Message(clientCommand=command, destNicks=[self.remoteNick])
-
-        # Encrypt all outgoing data
-        if payload is not None and self.isEncrypted:
-            payload = self.crypto.aesEncrypt(payload)
-            message.setEncryptedPayload(payload)
-
-            # Generate and set the HMAC for the message
-            hmac = self.crypto.generateHmac(payload)
-            message.setBinaryHmac(hmac)
-
-            # Encrypt the message number of the message
-            message.setBinaryMessageNum(self.crypto.aesEncrypt(str(self.outgoingMessageNum)))
-            self.outgoingMessageNum += 1
+    def __createSession(self, client, imediate_handshake=False):
+        if client.id == self.id:
+            self.callbacks['err'](client.id, ERR_SELF_CONNECT)
+        # NEED TO FIX AFTER IDENTIFICATION IS IMPLEMENTED
+        elif client.id in self.sessions:
+            self.callbacks['err'](client.id, ERR_ALREADY_CONNECTED)
         else:
-            message.payload = payload
+            new_session = PrivateSession(client, self.callbacks, imediate_handshake)
+            self.sessions[new_session.id] = new_session
+            new_session.start()
 
-        self.sendMessageCallback(message)
+    def connectToServer(self):
+        self.sock.connect()
+        self.send_thread.start()
+        self.recv_thread.start()
+        self.__sendProtocolVersion()
+        self.__registerNick()
 
-    def postMessage(self, message):
-        self.messageQueue.put(message)
+    def disconnectFromServer(self):
+        if self.sock.connected:
+            try:
+                # END all sessions
+                for _, session in self.sessions.items():
+                    session.disconnect()
+                # Send END command to server
+                self.__sendServerCommand(COMMAND_END)
+            except Exception:
+                pass
 
-    def initiateSMP(self, question, answer):
-        self.sendMessage(constants.COMMAND_SMP_0, question)
+    def getClientById(self, client_id):
+        self.__sendServerCommand(COMMAND_GET_REMOTE, str(client_id))
 
-        self.smp = SMP(answer)
-        buffer = self.smp.step1()
-        self.sendMessage(constants.COMMAND_SMP_1, buffer)
+    def getSession(self, session_id):
+        try:
+            return self.sessions[session_id]
+        except KeyError:
+            return None
 
-    def respondSMP(self, answer):
-        self.smp = SMP(answer)
-        self.__doSMPStep1(self.smpStep1)
+    def openSession(self, client):
+        self.__createSession(client, imediate_handshake=True)
+
+    def closeSession(self, session_id):
+        if self.getClient(session_id):
+            # Send END command
+            self.sendMessage(Message(**{
+                'command': COMMAND_END,
+                'route': (self.id, 0),
+            }))
+            # Remove session from sessions list
+            self.destroySession(session_id)
+
+    def destroySession(self, session_id):
+        del self.sessions[session_id]
+
+    def sendMessage(self, message):
+        self.send_thread.message_queue.put(message)
+
+    def recvMessage(self, message):
+        command = message.command
+        route = message.command
+        # Handle errors/shutdown from the server
+        if message.command == COMMAND_ERR:
+            # Client not found
+            if int(message.error) == ERR_NICK_NOT_FOUND:
+                try:
+                    # NEED TO FIX AFTER IDENTIFICATION IS IMPLEMENTED
+                    del self.sessions[route[1]]
+                except Exception:
+                    pass
+            self.callbacks['err'](route[1], int(message.error))
+        elif message.command == COMMAND_END:
+            self.callbacks['err']('', int(message.error))
+        else:
+            if command == COMMAND_ADD:
+                # NEED TO FIX AFTER IDENTIFICATION IS IMPLEMENTED
+                pass
+            else:
+                # Send data to intended session
+                try:
+                    self.sessions[route[1]].postMessage(message)
+                except KeyError as ke:
+                    # Create a new client
+                    if command == COMMAND_HELO:
+                        self.newClientCallback(route[1])
+                    else:
+                        self.sendMessage(Message(**{
+                            'command': COMMAND_ERR,
+                            'route': (self.id, 0),
+                            'error': INVALID_COMMAND,
+                        }))
+
+    def newClientAccepted(self, client):
+        self.__createSession(nick)
+
+    def newClientRejected(self, client):
+        # If rejected, send the rejected command to the client
+        self.sendMessage(Message(**{
+            'command': COMMAND_REJECT,
+            'route': (self.id, client.id),
+        }))
+
+    def respondSmp(self, session_id, answer):
+        self.sessions[session_id].respondSMP(answer)
+
+
+class RecvThread(threading.Thread):
+    
+    def __init__(self, sock, recv_callback, err_callback):
+        threading.Thread.__init__(self, daemon=True)
+        self.sock = sock
+        self.recv_callback = recv_callback
+        self.err_callback = err_callback
 
     def run(self):
-        if self.initiateHandkshakeOnStart:
-            self.__initiateHandshake()
-        else:
-            self.__doHandshake()
-
-        if not self.wasHandshakeDone:
-            return
-
         while True:
-            message = self.messageQueue.get()
-
-            command = message.clientCommand
-            payload = message.payload
-
-            # Check if the client requested to end the connection
-            if command == constants.COMMAND_END:
-                self.connectionManager.destroyClient(self.remoteNick)
-                self.errorCallback(self.remoteNick, errors.ERR_CONNECTION_ENDED)
-                return
-            # Ensure we got a valid command
-            elif self.wasHandshakeDone and command not in constants.LOOP_COMMANDS:
-                self.connectionManager.destroyClient(self.remoteNick)
-                self.errorCallback(self.remoteNick, errors.ERR_INVALID_COMMAND)
-                return
-
-            # Decrypt the incoming data
-            payload = self.__getDecryptedPayload(message)
-
-            self.messageQueue.task_done()
-
-            # Handle SMP commands specially
-            if command in constants.SMP_COMMANDS:
-               self.__handleSMPCommand(command, payload)
-            else:
-                payload = payload.decode()
-                self.recvMessageCallback(command, message.sourceNick, payload, False)
-
-    def connect(self):
-        self.__initiateHandshake()
-
-    def disconnect(self):
-        try:
-            self.sendMessage(constants.COMMAND_END)
-        except:
-            pass
-
-    def __doHandshake(self):
-        try:
-            # The caller of this function (should) checks for the initial HELO command
-
-            # Send the ready command
-            self.sendMessage(constants.COMMAND_REDY)
-
-            # Receive the client's public key
-            clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
-            clientPublicKey = clientPublicKey.encode() # The key would've been decoded while being sent as JSON hates encoding
-            self.crypto.computeDHSecret(int(base64.b64decode(clientPublicKey)))
-
-            # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode('ascii'))
-            self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
-
-            # Switch to AES encryption for the remainder of the connection
-            self.isEncrypted = True
-
-            self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, False)
-        except exceptions.ProtocolEnd:
-            self.disconnect()
-            self.connectionManager.destroyClient(self.remoteNick)
-        except (exceptions.ProtocolError, exceptions.CryptoError) as e:
-            self.__handleHandshakeError(e)
-
-    def __initiateHandshake(self):
-        try:
-            # Send the hello command
-            self.sendMessage(constants.COMMAND_HELO)
-
-            # Receive the redy command
-            self.__getHandshakeMessagePayload(constants.COMMAND_REDY)
-
-            # Send our public key
-            publicKey = base64.b64encode(str(self.crypto.getDHPubKey()).encode())
-            self.sendMessage(constants.COMMAND_PUBLIC_KEY, publicKey)
-
-            # Receive the client's public key
-            clientPublicKey = self.__getHandshakeMessagePayload(constants.COMMAND_PUBLIC_KEY)
-            self.crypto.computeDHSecret(int(base64.b64decode(clientPublicKey)))
-
-            # Switch to AES encryption for the remainder of the connection
-            self.isEncrypted = True
-
-            self.wasHandshakeDone = True
-            self.handshakeDoneCallback(self.remoteNick, False)
-        except exceptions.ProtocolEnd:
-            self.disconnect()
-            self.connectionManager.destroyClient(self.remoteNick)
-        except (exceptions.ProtocolError, exceptions.CryptoError) as e:
-            self.__handleHandshakeError(e)
-
-    def __getHandshakeMessagePayload(self, expectedCommand):
-        message = self.messageQueue.get()
-
-        if message.clientCommand != expectedCommand:
-            if message.clientCommand == constants.COMMAND_END:
-                raise exceptions.ProtocolEnd
-            elif message.clientCommand == constants.COMMAND_REJECT:
-                raise exceptions.ProtocolError(errno=errors.ERR_CONNECTION_REJECTED)
-            else:
-                raise exceptions.ProtocolError(errno=errors.ERR_BAD_HANDSHAKE)
-
-        payload = self.__getDecryptedPayload(message)
-        self.messageQueue.task_done()
-
-        return payload
-
-    def __getDecryptedPayload(self, message):
-        if self.isEncrypted:
-            payload = message.getEncryptedPayloadAsBinaryString()
-            encryptedMessageNumber = message.getMessageNumAsBinaryString()
-
-            # Check the HMAC
-            if not self.__verifyHmac(message.hmac, payload):
-                self.errorCallback(message.sourceNick, errors.ERR_BAD_HMAC)
-                raise exceptions.CryptoError(errno=errors.BAD_HMAC)
-
             try:
-                # Check the message number
-                messageNumber = int(self.crypto.aesDecrypt(encryptedMessageNumber))
+                message = Message.createFromJSON(self.sock.recv())
+                self.recv_callback(message)
+            except NetworkError as ne:
+                if hasattr(ne, 'errno') and (ne.errno != ERR_CLOSED_CONNECTION):
+                    self.err_callback('', ERR_NETWORK_ERROR)
+                return
 
-                # If the message number is less than what we're expecting, the message is being replayed
-                if self.incomingMessageNum > messageNumber:
-                    raise exceptions.ProtocolError(errno=errors.ERR_MESSAGE_REPLAY)
-                # If the message number is greater than what we're expecting, messages are being deleted
-                elif self.incomingMessageNum < messageNumber:
-                    raise exceptions.ProtocolError(errno=errors.ERR_MESSAGE_DELETION)
-                self.incomingMessageNum += 1
 
-                # Decrypt the payload
-                payload = self.crypto.aesDecrypt(payload)
-            except exceptions.CryptoError as ce:
-                self.errorCallback(message.sourceNick, errors.ERR_BAD_DECRYPT)
-                raise ce
-        else:
-            payload = message.payload
+class SendThread(threading.Thread):
+    
+    def __init__(self, sock, err_callback):
+        threading.Thread.__init__(self, daemon=True)
+        self.sock = sock
+        self.err_callback = err_callback
+        self.message_queue = queue.Queue()
 
-        return payload
-
-    def __verifyHmac(self, givenHmac, payload):
-        generatedHmac = self.crypto.generateHmac(payload)
-        return utils.secureStrcmp(generatedHmac, base64.b64decode(givenHmac))
-
-    def __handleSMPCommand(self, command, payload):
-        try:
-            if command == constants.COMMAND_SMP_0:
-                # Fire the SMP request callback with the given question
-                payload = payload.decode()
-                self.smpRequestCallback(constants.SMP_CALLBACK_REQUEST, self.remoteNick, payload)
-            elif command == constants.COMMAND_SMP_1:
-                # If there's already an smp object, go ahead to step 1.
-                # Otherwise, save the payload until we have an answer from the user to respond with
-                if self.smp:
-                    self.__doSMPStep1(payload)
-                else:
-                    self.smpStep1 = payload
-            elif command == constants.COMMAND_SMP_2:
-                self.__doSMPStep2(payload)
-            elif command == constants.COMMAND_SMP_3:
-                self.__doSMPStep3(payload)
-            elif command == constants.COMMAND_SMP_4:
-                self.__doSMPStep4(payload)
-            else:
-                # This shouldn't happen
-                raise exceptions.CryptoError(errno=errors.ERR_SMP_CHECK_FAILED)
-        except exceptions.CryptoError as ce:
-            self.smpRequestCallback(constants.SMP_CALLBACK_ERROR, self.remoteNick, '', ce.errno)
-
-    def __doSMPStep1(self, payload):
-        buffer = self.smp.step2(payload)
-        self.sendMessage(constants.COMMAND_SMP_2, buffer)
-
-    def __doSMPStep2(self, payload):
-        buffer = self.smp.step3(payload)
-        self.sendMessage(constants.COMMAND_SMP_3, buffer)
-
-    def __doSMPStep3(self, payload):
-        buffer = self.smp.step4(payload)
-        self.sendMessage(constants.COMMAND_SMP_4, buffer)
-
-        # Destroy the SMP object now that we're done
-        self.smp = None
-
-    def __doSMPStep4(self, payload):
-        self.smp.step5(payload)
-
-        if self.__checkSMP():
-            self.smpRequestCallback(constants.SMP_CALLBACK_COMPLETE, self.remoteNick)
-
-        # Destroy the SMP object now that we're done
-        self.smp = None
-
-    def __checkSMP(self):
-        if not self.smp.match:
-            raise exceptions.CryptoError(errno=errors.ERR_SMP_MATCH_FAILED)
-        return True
-
-    def __handleHandshakeError(self, exception):
-        self.errorCallback(self.remoteNick, exception.errno)
-
-        # For all errors except the connection being rejected, tell the client there was an error
-        if exception.errno != errors.ERR_CONNECTION_REJECTED:
-            self.sendMessage(constants.COMMAND_ERR)
-        else:
-            self.connectionManager.destroyClient(self.remoteNick)
+    def run(self):
+        while True:
+            message = self.message_queue.get()
+            try:
+                self.sock.send(str(message))
+                if message.command == COMMAND_END:
+                    self.sock.disconnect()
+            except NetworkError as ne:
+                self.err_callback('', ERR_NETWORK_ERROR)
+                return
+            finally:
+                self.message_queue.task_done()

@@ -1,33 +1,35 @@
 import base64
 import json
 
+
 class Message(object):
-    def __init__(self, serverCommand=None, clientCommand=None, sourceNick=None, destNicks=[],
-                 payload=None, hmac=None, error=None, num=None, isGroup=False):
-        self.serverCommand = str(serverCommand)
-        self.clientCommand = str(clientCommand)
-        self.sourceNick    = str(sourceNick)
-        self.destNicks     = list(destNicks)
-        self.payload       = str(payload)
-        self.hmac          = str(hmac)
-        self.error         = str(error)
-        self.num           = str(num)
-        self.isGroup       = bool(isGroup)
+
+    def __init__(self,
+                 command, route=(0, 0), data='',
+                 hmac='', error='', num=''):
+        
+        self.command = str(command)
+        self.route = tuple(route)
+        self.data = str(data)
+        self.hmac = str(hmac)
+        self.error = str(error)
+        self.num = str(num)
 
     def __str__(self):
-        # Hack for JSON encoding
-        if hasattr(self.payload, "decode"):
-            self.payload = self.payload.decode()
-        return json.dumps({'serverCommand': self.serverCommand, 'clientCommand': self.clientCommand,
-                           'sourceNick': self.sourceNick, 'destNicks': self.destNicks,
-                           'payload': self.payload, 'hmac': self.hmac, 'error': self.error, 'num': self.num,
-                           'isGroup': self.isGroup})
+        return json.dumps({
+            'command': self.command,
+            'route': self.route,
+            'data': self.data,
+            'hmac': self.hmac,
+            'error': self.error,
+            'num': self.num,
+        })
 
-    def getEncryptedPayloadAsBinaryString(self):
-        return base64.b64decode(self.payload)
+    def getEncryptedDataAsBinaryString(self):
+        return base64.b64decode(self.data)
 
-    def setEncryptedPayload(self, payload):
-        self.payload = base64.b64encode(payload).decode()
+    def setEncryptedData(self, data):
+        self.payload = base64.b64encode(data).decode()
 
     def getHmacAsBinaryString(self):
         return base64.b64decode(self.hmac)
@@ -44,5 +46,11 @@ class Message(object):
     @staticmethod
     def createFromJSON(jsonStr):
         jsonStr = json.loads(jsonStr)
-        return Message(jsonStr['serverCommand'], jsonStr['clientCommand'], jsonStr['sourceNick'], jsonStr['destNicks'],
-                       jsonStr['payload'], jsonStr['hmac'], jsonStr['error'], jsonStr['num'], jsonStr['isGroup'])
+        return Message(
+            jsonStr['command'],
+            jsonStr['route'],
+            jsonStr['data'],
+            jsonStr['hmac'],
+            jsonStr['error'],
+            jsonStr['num'],
+        )
