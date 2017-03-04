@@ -89,10 +89,10 @@ class Client(HingeObject.HingeObject):
 
     def __init__(self, sock):
         HingeObject.HingeObject.__init__(self)
-        
+
         self.sock = sock
         self.nick = None
-        
+
         self.send_thread = SendThread(sock)
         self.recv_thread = RecvThread(self, sock)
 
@@ -223,6 +223,15 @@ class RecvThread(threading.Thread):
                     nick_map[self.client.nick].disconnect()
                     self.client.id_map.remove(self.client)
                     return
+                elif message.command == COMMAND_GET_ID:
+                    nick = message.data
+                    id = nick_map[nick].id
+
+                    message.data = id
+                    message.command = COMMAND_SEND_ID
+                    message.route = (0, self.client.nick)
+                    self.client.send(message)
+                    return
                 elif message.command != COMMAND_RELAY:
                     printAndLog("%s: sent invalid command" % self.client.nick)
                     self.__handleError(ERR_INVALID_COMMAND)
@@ -235,7 +244,7 @@ class RecvThread(threading.Thread):
                         self.__handleError(ERR_INVALID_NICK)
 
                     client = nick_map[nick.lower()]
-                    message.route = (0, self.nick)
+                    message.route = (nick, self.nick)
                     client.send(message)
                 except KeyError:
                     pass

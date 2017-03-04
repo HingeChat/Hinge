@@ -12,7 +12,7 @@ from src.hinge.utils import *
 
 
 class Client(HingeObject.HingeObject):
-    
+
     def __init__(self, nick, server_addr, callbacks):
         HingeObject.HingeObject.__init__(self)
 
@@ -71,6 +71,9 @@ class Client(HingeObject.HingeObject):
     def getClientById(self, client_id):
         self.__sendServerCommand(COMMAND_GET_REMOTE, str(client_id))
 
+    def getClientId(self, nick):
+        self.__sendServerCommand(COMMAND_GET_ID, str(nick))
+
     def getSession(self, session_id):
         try:
             return self.sessions[session_id]
@@ -111,6 +114,8 @@ class Client(HingeObject.HingeObject):
             self.callbacks['err'](route[1], int(message.error))
         elif message.command == COMMAND_END:
             self.callbacks['err']('', int(message.error))
+        elif message.command == COMMAND_SEND_ID:
+            self.id_map.add(message.data)
         else:
             if command == COMMAND_ADD:
                 # NEED TO FIX AFTER IDENTIFICATION IS IMPLEMENTED
@@ -145,7 +150,7 @@ class Client(HingeObject.HingeObject):
 
 
 class RecvThread(threading.Thread):
-    
+
     def __init__(self, sock, recv_callback, err_callback):
         threading.Thread.__init__(self, daemon=True)
         self.sock = sock
@@ -164,7 +169,7 @@ class RecvThread(threading.Thread):
 
 
 class SendThread(threading.Thread):
-    
+
     def __init__(self, sock, err_callback):
         threading.Thread.__init__(self, daemon=True)
         self.sock = sock
