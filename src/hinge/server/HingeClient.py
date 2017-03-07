@@ -14,6 +14,9 @@ class Connection(object):
         self.id = hash(self)
         self.nick = None
 
+    def updateId(self, new_id):
+        self.id = new_id
+
 
 class HingeClient(Connection):
 
@@ -27,10 +30,11 @@ class HingeClient(Connection):
         def run(self):
             while True:
                 message = self.queue.get()
+                self.client.server.notify("SENT:: " + message.json())
                 try:
-                    self.client.sock.send(str(message))
+                    self.client.sock.send(message.json())
                 except Exception as e:
-                    self.server.notify("{0}: error sending data to {1}".format(*message.route))
+                    self.client.server.notify("{0}: error sending data to {1}".format(*message.route))
                     self.client.disconnect()
                     return
                 finally:
@@ -41,6 +45,15 @@ class HingeClient(Connection):
         def __init__(self, client):
             threading.Thread.__init__(self, daemon=True)
             self.client = client
+
+        def __handleError(self, error_code, msg=None):
+            msg = Message(COMMAND_ERR, error=error_code)
+            self.client.sock.send(msg.json())
+            self.client.disconnect()
+            if msg:
+                self.client.server.notify(msg)
+            else:
+                pass
 
         def __verifyClientConnection(self):
             # The client should send the protocol version
@@ -82,16 +95,7 @@ class HingeClient(Connection):
                 self.exit(ERR_NICK_IN_USE, msg)
                 return
             else:
-                self.client.registerNick(message.data)
-
-        def __handleError(self, error_code, msg=None):
-            msg = Message(COMMAND_ERR, error=error_code)
-            self.client.sock.send(msg.json())
-            self.client.disconnect()
-            if msg:
-                self.server.notify(msg)
-            else:
-                pass
+                self.client.registerNick(message.data, message.route[0])
 
         def run(self):
             self.__verifyClientConnection()
@@ -100,6 +104,7 @@ class HingeClient(Connection):
                     # Check for malformed messages
                     try:
                         message = Message.createFromJson(self.client.sock.recv())
+                        self.client.server.notify("RECV:: " + message.json())
                     except KeyError:
                         msg = "{0}: sent a command with missing fields".format(self.client.id)
                         self.exit(ERR_MALFORMED_MESSAGE, msg)
@@ -117,6 +122,17 @@ class HingeClient(Connection):
                             message.data = ''
                         finally:
                             message.command = COMMAND_SEND_ID
+                            message.route = (0, message.route[0])
+                            self.client.send(message)
+                            return
+                    # Handle requests to retrieve a client's nick
+                    elif message.command == COMMAND_REQ_NICK:
+                        try:
+                            message.data = self.client.manager.getClientNick(message.data)
+                        except KeyError:
+                            message.data = ''
+                        finally:
+                            message.command = COMMAND_SEND_NICK
                             message.route = (0, message.route[0])
                             self.client.send(message)
                             return
@@ -142,6 +158,9 @@ class HingeClient(Connection):
                     self.client.disconnect()
                     return
 
+        def exit(self, code, msg=None):
+            self.__handleError(code, msg)
+
     def __init__(self, server, sock):
         Connection.__init__(self, server.client_manager, str(sock))
         self.server = server
@@ -152,23 +171,23 @@ class HingeClient(Connection):
         self.recv_thread = HingeClient.RecvThread(self)
         self.recv_thread.start()
 
-    def __nickRegistered(self, nick):
+    def __nickRegistered(self, nick, remote_id):
         # Write to log
         self.server.notify("{0} -> {1}".format(str(self.sock), nick))
         # Add to CIDM
         self.nick = nick
         self.manager.register(self)
+        self.manager.updateClientId(self.id, remote_id)
 
     def send(self, message):
         self.send_thread.queue.put(message)
 
-    def registerNick(self, nick):
+    def registerNick(self, nick, remote_id):
         self.nick = nick
-        self.__nickRegistered(nick)
+        self.__nickRegistered(nick, remote_id)
 
     def disconnect(self):
         self.sock.disconnect()
-        self.manager.remove(self)
 
     def kick(self):
         message = Message(COMMAND_ERR, (0, self.id), ERR_KICKED)

@@ -72,7 +72,7 @@ class TURNServer(object):
         # Pause to ensure message has been received
         time.sleep(0.25)
         # Close log
-        if log_file is not None:
-            log_file.close()
+        if self.log_file is not None:
+            self.log_file.close()
         else:
             pass

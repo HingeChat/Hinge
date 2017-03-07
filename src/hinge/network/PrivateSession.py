@@ -5,8 +5,8 @@ from src.hinge.utils import *
 
 class PrivateSession(Session.Session):
 
-    def __init__(self, client, callbacks, imediate_handshake=False):
-        Session.Session.__init__(self, client, callbacks)
+    def __init__(self, client, remote_id, imediate_handshake=False):
+        Session.Session.__init__(self, client, remote_id)
         
         self.imediate_handshake = imediate_handshake
         self.handshake_done = False
@@ -149,27 +149,27 @@ class PrivateSession(Session.Session):
         # Main loop
         while True:
             message = self.message_queue.get()
-            command = message.command
-            data = message.data
             # Check if client requested to end
-            if command == COMMAND_END:
+            if message.command == COMMAND_END:
                 self.client.destroySession(self.id)
                 self.callbacks['err'](self.id, ERR_CONNECTION_ENDED)
             # Verify command
-            elif self.handshake_done and (command not in LOOP_COMMANDS):
+            elif self.handshake_done and (message.command not in LOOP_COMMANDS):
                 self.client.destroySession(self.id)
                 self.callbacks['err'](self.id, ERR_INVALID_COMMAND)
             # Handle commands
             else:
                 # Decrypt data
-                data = self.__getDecryptedData(data)
+                data = self.__getDecryptedData(message.data)
                 # Mark as done
                 self.message_queue.task_done()
                 # Handle SMP commands
                 if command in SMP_COMMANDS:
-                    self.__handleSmpCommand(command, data)
+                    self.__handleSmpCommand(message.command, message.data)
                 else:
-                    self.callbacks['recv'](command, message.route, data.decode())
+                    self.callbacks['recv'](message.command,
+                                           message.route,
+                                           message.data.decode())
 
     def initiateSmp(self, question, answer):
         self.sendMessage(COMMAND_SMP0, question)

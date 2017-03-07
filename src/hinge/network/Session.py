@@ -4,18 +4,18 @@ import threading
 
 from src.hinge.crypto.CryptoUtils import CryptoUtils
 from src.hinge.network import HingeObject
-from src.hinge.network.Message import Message
+from src.hinge.network import Message
 from src.hinge.utils import *
 
 
 class Session(threading.Thread, HingeObject.HingeObject):
 
-    def __init__(self, client, callbacks):
+    def __init__(self, client, remote_id):
         threading.Thread.__init__(self, daemon=True)
         HingeObject.HingeObject.__init__(self)
 
         self.client = client
-        self.callbacks = callbacks
+        self.remote_id = remote_id
 
         self.message_queue = queue.Queue()
         self.incoming_message_num = 0
@@ -35,7 +35,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
             enc_num = message.getMessageNumAsBinaryString()
             # Check HMAC
             if not self.__verifyHmac(message.hmac, data):
-                self.callbacks['err'](message.route, ERR_BAD_HMAC)
+                self.client.callbacks['err'](message.route, ERR_BAD_HMAC)
                 raise CryptoError(errno=errors.BAD_HMAC)
             else:
                 try:
@@ -50,7 +50,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
                     data = self.crypto.aesDecrypt(data)
                     return data
                 except CryptoError as ce:
-                    self.callbacks['err'](message.route, ERR_BAD_DECRYPT)
+                    self.client.callbacks['err'](message.route, ERR_BAD_DECRYPT)
                     raise ce
         else:
             return message.data
@@ -69,24 +69,23 @@ class Session(threading.Thread, HingeObject.HingeObject):
         # Override in subclass
         pass
 
-    def sendMessage(self, command, **kwargs):
-        message = Message(**{
-            'command': command,
-            'route': (self.client.id, self.id),
-        })
+    def sendMessage(self, command, data=None):
+        message = Message.Message(command, (self.client.id, self.remote_id))
 
-        if kwargs.get('data') and self.encrypted:
+        if (data is not None) and self.encrypted:
             # Encrypt data and message number & generate HMAC
-            data = self.crypto.aesEncrypt(kwargs.get('data').encode())
+            enc_data = self.crypto.aesEncrypt(data.encode())
             num = self.crypto.aesEncrypt(str(self.outgoing_message_num).encode())
             hmac = self.crypto.generateHmac(enc_data)
             # Update message
-            message.setEncryptedData(data)
+            message.setEncryptedData(enc_data)
             message.setBinaryHmac(hmac)
             message.setBinaryMessageNum(num)
             self.outgoing_message_num += 1
+        else:
+            pass
 
-        self.callbacks['send'](message)
+        self.client.sendMessage(message)
 
     def sendChatMessage(self, text):
         self.sendMessage(COMMAND_MSG, data=text)
