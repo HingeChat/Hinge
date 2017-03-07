@@ -40,10 +40,10 @@ class TURNServer(object):
 
     def start(self):
         self.openLog()
-        self.server_sock = self.startServer()
+        self.startServer()
         while True:
             # Wait for client to connect
-            (client_sock, client_addr) = self.server_sock.accept()
+            (client_sock, client_addr) = self.sock.accept()
             # Wrap the socket in our socket object
             client_sock = Socket(client_addr, client_sock)
             # Store client's IP and port
@@ -52,12 +52,11 @@ class TURNServer(object):
 
     def startServer(self):
         self.notify("Starting server...")
-        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_sock.bind(('0.0.0.0', self.listen_port))
-            server_sock.listen(10)
-            return server_sock
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind(('0.0.0.0', self.listen_port))
+            self.sock.listen(10)
         except NetworkError as ne:
             self.notify("Failed to start server")
             sys.exit(1)

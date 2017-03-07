@@ -30,7 +30,6 @@ class HingeClient(Connection):
         def run(self):
             while True:
                 message = self.queue.get()
-                self.client.server.notify("SENT:: " + message.json())
                 try:
                     self.client.sock.send(message.json())
                 except Exception as e:
@@ -104,7 +103,6 @@ class HingeClient(Connection):
                     # Check for malformed messages
                     try:
                         message = Message.createFromJson(self.client.sock.recv())
-                        self.client.server.notify("RECV:: " + message.json())
                     except KeyError:
                         msg = "{0}: sent a command with missing fields".format(self.client.id)
                         self.exit(ERR_MALFORMED_MESSAGE, msg)

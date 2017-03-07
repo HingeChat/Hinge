@@ -25,7 +25,6 @@ class Client(HingeObject.HingeObject):
                 message = self.message_queue.get()
                 try:
                     self.client.sock.send(message.json())
-                    print("CLSEND::", message.json())
                     if message.command == COMMAND_END:
                         self.client.sock.disconnect()
                     else:
@@ -46,7 +45,6 @@ class Client(HingeObject.HingeObject):
             while True:
                 try:
                     message = Message.Message.createFromJson(self.client.sock.recv())
-                    print("RECV::", message)
                     # Check for error
                     if hasattr(message, 'error') and (message.error != ''):
                         error = int(message.error)

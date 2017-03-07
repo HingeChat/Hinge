@@ -52,6 +52,7 @@ class Socket(object):
         while sent_size < length:
             try:
                 amount_sent = self.sock.send(data[sent_size:])
+                print("SENT:: " + str(data))
             except Exception:
                 self.connected = False
                 raise NetworkError(UNEXPECTED_CLOSE_CONNECTION)
@@ -74,6 +75,7 @@ class Socket(object):
             recv_size = 0
             while recv_size < length:
                 new_data = self.sock.recv(length - recv_size)
+                print("RECV:: " + str(new_data))
                 if not new_data:
                     self.connected = False
                     raise NetworkError(CLOSE_CONNECTION)
