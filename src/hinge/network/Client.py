@@ -15,13 +15,10 @@ class Client(HingeObject.HingeObject):
 
     def __init__(self, nick, server_addr, callbacks):
         HingeObject.HingeObject.__init__(self)
-
         self.sessions = {}
         self.nick = nick
         self.sock = Socket(server_addr)
-
         self.callbacks = callbacks
-
         self.message_queue = queue.Queue()
         self.send_thread = SendThread(self.sock, self.callbacks['err'])
         self.recv_thread = RecvThread(self.sock, self.recvMessage, self.callbacks['err'])
@@ -30,11 +27,8 @@ class Client(HingeObject.HingeObject):
         self.__sendServerCommand(COMMAND_VERSION, PROTOCOL_VERSION)
 
     def __sendServerCommand(self, command, data=''):
-        self.send_thread.message_queue.put(Message(**{
-            'command': command,
-            'route': (self.id, 0),
-            'data': data,
-        }))
+        message = Message(command, (self.id, 0), data)
+        self.send_thread.message_queue.put(message)
 
     def __registerNick(self):
         self.__sendServerCommand(COMMAND_REGISTER, self.nick)
@@ -160,7 +154,7 @@ class RecvThread(threading.Thread):
     def run(self):
         while True:
             try:
-                message = Message.createFromJSON(self.sock.recv())
+                message = Message.createFromJson(self.sock.recv())
                 self.recv_callback(message)
             except NetworkError as ne:
                 if hasattr(ne, 'errno') and (ne.errno != ERR_CLOSED_CONNECTION):

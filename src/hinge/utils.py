@@ -21,7 +21,7 @@ COMMAND_RELAY = "REL"
 COMMAND_ADD = "ADD"
 COMMAND_VERSION = "VERSION"
 COMMAND_GET_REMOTE = "REMOTE"
-COMMAND_GET_ID = "GETID"
+COMMAND_REQ_ID = "REQID"
 COMMAND_SEND_ID = "SENDID"
 
 # Handshake commands
@@ -214,17 +214,9 @@ ERR_SMP_MATCH_FAILED = 17
 ERR_MESSAGE_REPLAY = 18
 ERR_MESSAGE_DELETION = 19
 ERR_PROTOCOL_VERSION_MISMATCH = 20
+ERR_MALFORMED_MESSAGE = 21
 
 # Functions
-
-def isValidNick(nick):
-    if nick == "":
-        return INVALID_EMPTY_NICK
-    if not nick.isalnum():
-        return INVALID_NICK_CONTENT
-    if len(nick) > NICK_MAX_LEN:
-        return INVALID_NICK_LENGTH
-    return VALID_NICK
 
 def getTimestamp():
     return time.strftime('%H:%M:%S', time.localtime())

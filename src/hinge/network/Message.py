@@ -16,6 +16,9 @@ class Message(object):
         self.num = str(num)
 
     def __str__(self):
+        return self.json()
+
+    def json(self):
         return json.dumps({
             'command': self.command,
             'route': self.route,
@@ -44,7 +47,7 @@ class Message(object):
         self.num = base64.b64encode(num).decode()
 
     @staticmethod
-    def createFromJSON(jsonStr):
+    def createFromJson(jsonStr):
         jsonStr = json.loads(jsonStr)
         return Message(
             jsonStr['command'],
