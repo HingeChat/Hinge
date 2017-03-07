@@ -44,7 +44,6 @@ class ClientManager(object):
             self._id_to_client[client.id] = client
         else:
             # Should not happen
-            print(self._id_to_client)
             raise Exception("client with id {0} already exists".format(client.id))
 
     def remove(self, client):
@@ -68,9 +67,7 @@ class ClientManager(object):
             raise KeyError("ip {0} is not connected".format(client.ip))
 
     def register(self, client):
-        if not self._ip_to_connections.get(client.ip):
-            raise Exception("ip {0} is not connected".format(client.ip))
-        elif not self._id_to_client.get(client.id):
+        if not self._id_to_client.get(client.id):
             raise Exception("client with id {0} does not exist".format(client.id))
         elif client.nick is None:
             raise Exception("client has no nick")
@@ -105,24 +102,15 @@ class ClientManager(object):
         else:
             return False
 
-    def getConnectionsFromIp(self, ip):
-        connections = self._ip_to_connections.get(ip)
-        if connections:
-            return connections
-        else:
-            raise KeyError("ip {0} is not connected".format(ip))
-
     def getClientById(self, client_id):
-        client = self._id_to_client.get(client_id)
-        if client:
-            return client
+        if self.isIdRegistered(client_id):
+            return self._id_to_client.get(client_id)
         else:
             raise KeyError("client with id {0} does not exist".format(client_id))
 
     def getClientByNick(self, nick):
-        client = self._nick_to_client.get(nick)
-        if client:
-            return client
+        if self.isNickRegistered(nick):
+            return self._nick_to_client.get(nick)
         else:
             raise KeyError("client with nick {0} does not exist".format(nick))
 
@@ -137,7 +125,13 @@ class ClientManager(object):
     def updateClientId(self, client_id, new_client_id):
         client = self.getClientById(client_id)
         client.id = new_client_id
+        # Change in ID map
+        del self._id_to_client[client_id]
+        self._id_to_client[client.id] = client
 
     def updateClientNick(self, nick, new_nick):
         client = self.getClientByNick(nick)
         client.nick = new_nick
+        # Change in nick map
+        del self._nick_to_client[nick]
+        self._nick_to_client[client.nick] = client

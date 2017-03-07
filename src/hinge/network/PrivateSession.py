@@ -1,3 +1,5 @@
+import base64
+
 from src.hinge.network import Session
 from src.hinge.crypto.smp import SMP
 from src.hinge.utils import *
@@ -28,7 +30,7 @@ class PrivateSession(Session.Session):
                 raise ProtocolError(errno=ERR_BAD_HANDSHAKE)
         else:
             # Decrypt message
-            data = self.__getDecryptedData(message)
+            data = self._Session__getDecryptedData(message)
             # Mark as done
             self.message_queue.task_done()
             return data

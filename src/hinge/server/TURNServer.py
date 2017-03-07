@@ -25,14 +25,14 @@ class TURNServer(object):
 
     def log(self, message):
         if self.log_file is not None:
-            self.log_file.write('%s\n' % message)
+            self.log_file.write('{0}\n'.format(message))
             self.log_file.flush()
         else:
             pass
 
     def notify(self, message):
         if self.show_console:
-            sys.stdout.write("\b\b\b%s\n>> " % message)
+            sys.stdout.write("\b\b\b{0}\n>> ".format(message))
             sys.stdout.flush()
         else:
             pass
@@ -47,7 +47,7 @@ class TURNServer(object):
             # Wrap the socket in our socket object
             client_sock = Socket(client_addr, client_sock)
             # Store client's IP and port
-            self.notify("Got connection: %s" % str(client_sock))
+            self.notify("Got connection: {0}".format(client_sock))
             self.client_manager.add(HingeClient(self, client_sock))
 
     def startServer(self):

@@ -67,13 +67,13 @@ class Client(HingeObject.HingeObject):
                         self.client.sync_resp = message.data
                     else:
                         # Send data to intended session
-                        session = self.client.sessions.get(message.route[1])
+                        session = self.client.sessions.get(message.route[0])
                         if session:
                             session.postMessage(message)
                         else:
                             # Create a new client
                             if message.command == COMMAND_HELO:
-                                self.client.newClientCallback(message.route[1])
+                                self.client.callbacks['new'](message.route[0])
                             else:
                                 message = Message.Message(COMMAND_ERR,
                                                           (self.client.id, 0),
@@ -107,17 +107,16 @@ class Client(HingeObject.HingeObject):
     def __registerNick(self):
         self.__sendServerCommand(COMMAND_REGISTER, self.nick)
 
-    def __createSession(self, remote_nick, imediate_handshake=False):
-        remote_id = self.getClientId(remote_nick)
+    def __createSession(self, nick, imediate_handshake=False):
+        remote_id = self.getClientId(nick)
         if remote_id == self.id:
             self.callbacks['err'](remote_id, ERR_SELF_CONNECT)
         elif remote_id in self.sessions:
             self.callbacks['err'](remote_id, ERR_ALREADY_CONNECTED)
         else:
-            self.__sendServerCommand(COMMAND_HELO)
-            #new_session = PrivateSession.PrivateSession(self, remote_id, imediate_handshake)
-            #self.sessions[new_session.id] = new_session
-            #new_session.start()
+            new_session = PrivateSession.PrivateSession(self, remote_id, imediate_handshake)
+            self.sessions[remote_id] = new_session
+            new_session.start()
 
     def _waitForResp(self):
         while self.sync_resp is None:
@@ -158,8 +157,8 @@ class Client(HingeObject.HingeObject):
         except KeyError:
             return None
 
-    def openSession(self, client):
-        self.__createSession(client, imediate_handshake=True)
+    def openSession(self, nick):
+        self.__createSession(nick, imediate_handshake=True)
 
     def closeSession(self, session_id):
         if self.getClient(session_id):
@@ -177,12 +176,12 @@ class Client(HingeObject.HingeObject):
     def sendMessage(self, message):
         self.send_thread.message_queue.put(message)
 
-    def newClientAccepted(self, client):
+    def newClientAccepted(self, nick):
         self.__createSession(nick)
 
-    def newClientRejected(self, client):
+    def newClientRejected(self, remote_id):
         # If rejected, send the rejected command to the client
-        message = Message.Message(COMMAND_REJECT, (self.id, client.id))
+        message = Message.Message(COMMAND_REJECT, (self.id, remote_id))
         self.sendMessage(message)
 
     def respondSmp(self, session_id, answer):
