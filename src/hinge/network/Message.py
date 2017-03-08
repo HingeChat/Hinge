@@ -7,7 +7,7 @@ class Message(object):
     def __init__(self,
                  command, route=(0, 0), data='',
                  hmac='', error='', num=''):
-        
+
         self.command = str(command)
         self.route = tuple(route)
         self.data = str(data)
@@ -19,6 +19,9 @@ class Message(object):
         return self.json()
 
     def json(self):
+        # Hack because JSON doesn't like bytes
+        if hasattr(self.data, "decode"):
+            self.data = self.data.decode()
         return json.dumps({
             'command': self.command,
             'route': self.route,
@@ -32,7 +35,7 @@ class Message(object):
         return base64.b64decode(self.data)
 
     def setEncryptedData(self, data):
-        self.payload = base64.b64encode(data).decode()
+        self.data = base64.b64encode(data).decode()
 
     def getHmacAsBinaryString(self):
         return base64.b64decode(self.hmac)

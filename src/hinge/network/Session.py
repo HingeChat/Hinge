@@ -83,7 +83,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
             message.setBinaryMessageNum(num)
             self.outgoing_message_num += 1
         else:
-            pass
+            message.data = data
 
         self.client.sendMessage(message)
 

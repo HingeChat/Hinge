@@ -9,10 +9,10 @@ class PrivateSession(Session.Session):
 
     def __init__(self, client, remote_id, imediate_handshake=False):
         Session.Session.__init__(self, client, remote_id)
-        
+
         self.imediate_handshake = imediate_handshake
         self.handshake_done = False
-        
+
         self.smp = None
         self.smp_step_1 = None
 
@@ -75,7 +75,7 @@ class PrivateSession(Session.Session):
             client_pub_key = self.__getHandshakeMessageData(COMMAND_PUB_KEY).encode()
             self.crypto.computeDHSecret(int(base64.b64decode(client_pub_key)))
             # Send our public key
-            pub_key = base64.b64encode(str(self.crypto.getHPubKey()).encode('ascii'))
+            pub_key = base64.b64encode(str(self.crypto.getDHPubKey()).encode('ascii'))
             self.sendMessage(COMMAND_PUB_KEY, pub_key)
             # Switch to AES encryption
             self.encrypted = True
