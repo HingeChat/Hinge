@@ -19,9 +19,10 @@ class Message(object):
         return self.json()
 
     def json(self):
-        # Hack because JSON doesn't like bytes
-        if hasattr(self.data, "decode"):
+        if isinstance(self.data, bytes):
             self.data = self.data.decode()
+        else:
+            self.data = str(self.data)
         return json.dumps({
             'command': self.command,
             'route': self.route,

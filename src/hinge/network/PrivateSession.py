@@ -9,10 +9,8 @@ class PrivateSession(Session.Session):
 
     def __init__(self, client, remote_id, imediate_handshake=False):
         Session.Session.__init__(self, client, remote_id)
-
         self.imediate_handshake = imediate_handshake
         self.handshake_done = False
-
         self.smp = None
         self.smp_step_1 = None
 
@@ -36,10 +34,10 @@ class PrivateSession(Session.Session):
             return data
 
     def __handleHandshakeError(self, exception):
-        self.callbacks['err'](self.id, exception.errno)
+        self.client.callbacks['err'](self.remote_id, exception.errno)
         # Rejected connection
         if exception.errno == ERR_CONNECTION_REJECTED:
-            self.client.destroySession(self.id)
+            self.client.destroySession(self.remote_id)
         # Error
         else:
             self.sendMessage(COMMAND_ERR)
@@ -60,10 +58,10 @@ class PrivateSession(Session.Session):
             self.encrypted = True
             # Mark as done
             self.handshake_done = True
-            self.callbacks['handshake'](self.id, False)
+            self.client.callbacks['handshake'](self.remote_id)
         except ProtocolEnd:
             self.disconnect()
-            self.client.destroySession(self.id)
+            self.client.destroySession(self.remote_id)
         except (ProtocolError, CryptoError) as e:
             self.__handleHandshakeError(e)
 
@@ -81,10 +79,10 @@ class PrivateSession(Session.Session):
             self.encrypted = True
             # Mark as done
             self.handshake_done = True
-            self.callbacks['handshake'](self.id, False)
+            self.client.callbacks['handshake'](self.remote_id)
         except ProtocolEnd:
             self.disconnect()
-            self.client.destroySession(self.id)
+            self.client.destroySession(self.remote_id)
         except (ProtocolError, CryptoError) as e:
             self.__handleHandshakeError(e)
 
@@ -99,7 +97,7 @@ class PrivateSession(Session.Session):
             if command == COMMAND_SMP_0:
                 # SMP callback with the given question
                 data = data.decode()
-                self.callbacks['smp'](SMP_CALLBACK_REQUEST, self.id, data)
+                self.client.callbacks['smp'](SMP_CALLBACK_REQUEST, self.remote_id, data)
             elif command == COMMAND_SMP_1:
                 # If there's already an smp object, go ahead to step 1.
                 # Otherwise, save the data until we have an answer from the user to respond with
@@ -116,7 +114,7 @@ class PrivateSession(Session.Session):
             else:
                 raise CryptoError(errno=ERR_SMP_CHECK_FAILED)
         except CryptoError as ce:
-            self.smpRequestCallback(SMP_CALLBACK_ERROR, self.client.id, '', ce.errno)
+            self.smpRequestCallback(SMP_CALLBACK_ERROR, self.remote_id, '', ce.errno)
 
     def __doSmpStep1(self, data):
         buffer = self.smp.step2(data)
@@ -133,7 +131,7 @@ class PrivateSession(Session.Session):
     def __doSmpStep4(self, data):
         self.smp.step5(data)
         if self.__checkSmp():
-            self.callbacks(SMP_CALLBACK_COMPLETE, self.id)
+            self.client.callbacks['smp'](SMP_CALLBACK_COMPLETE, self.remote_id)
         self.smp = None
 
     def connect(self):
@@ -153,25 +151,25 @@ class PrivateSession(Session.Session):
             message = self.message_queue.get()
             # Check if client requested to end
             if message.command == COMMAND_END:
-                self.client.destroySession(self.id)
-                self.callbacks['err'](self.id, ERR_CONNECTION_ENDED)
+                self.client.destroySession(self.remote_id)
+                self.client.callbacks['err'](self.remote_id, ERR_CONNECTION_ENDED)
             # Verify command
             elif self.handshake_done and (message.command not in LOOP_COMMANDS):
-                self.client.destroySession(self.id)
-                self.callbacks['err'](self.id, ERR_INVALID_COMMAND)
+                self.client.destroySession(self.remote_id)
+                self.client.callbacks['err'](self.remote_id, ERR_INVALID_COMMAND)
             # Handle commands
             else:
                 # Decrypt data
-                data = self.__getDecryptedData(message.data)
+                data = self._Session__getDecryptedData(message)
                 # Mark as done
                 self.message_queue.task_done()
                 # Handle SMP commands
-                if command in SMP_COMMANDS:
-                    self.__handleSmpCommand(message.command, message.data)
+                if message.command in SMP_COMMANDS:
+                    self.__handleSmpCommand(message.command, data)
                 else:
-                    self.callbacks['recv'](message.command,
-                                           message.route,
-                                           message.data.decode())
+                    self.client.callbacks['recv'](message.command,
+                                                  self.remote_id,
+                                                  data.decode())
 
     def initiateSmp(self, question, answer):
         self.sendMessage(COMMAND_SMP0, question)

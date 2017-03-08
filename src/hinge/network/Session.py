@@ -13,14 +13,11 @@ class Session(threading.Thread, HingeObject.HingeObject):
     def __init__(self, client, remote_id):
         threading.Thread.__init__(self, daemon=True)
         HingeObject.HingeObject.__init__(self)
-
         self.client = client
         self.remote_id = remote_id
-
         self.message_queue = queue.Queue()
         self.incoming_message_num = 0
         self.outgoing_message_num = 0
-
         self.crypto = CryptoUtils()
         self.crypto.generateDHKey()
         self.encrypted = False
@@ -82,8 +79,10 @@ class Session(threading.Thread, HingeObject.HingeObject):
             message.setBinaryHmac(hmac)
             message.setBinaryMessageNum(num)
             self.outgoing_message_num += 1
-        else:
+        elif data is not None:
             message.data = data
+        else:
+            pass
 
         self.client.sendMessage(message)
 

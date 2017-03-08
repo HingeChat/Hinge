@@ -11,7 +11,7 @@ class Connection(object):
     def __init__(self, manager, ip):
         self.manager = manager
         self.ip = ip
-        self.id = hash(self)
+        self.id = str(hash(self))
         self.nick = None
 
     def updateId(self, new_id):
@@ -120,35 +120,36 @@ class HingeClient(Connection):
                             message.data = ''
                         finally:
                             message.command = COMMAND_SEND_ID
-                            message.route = (0, message.route[0])
+                            message.route = (SERVER_ROUTE, message.route[0])
                             self.client.send(message)
                     # Handle requests to retrieve a client's nick
                     elif message.command == COMMAND_REQ_NICK:
                         try:
-                            message.data = self.client.manager.getClientNick(int(message.data))
+                            message.data = self.client.manager.getClientNick(message.data)
                         except KeyError:
                             message.data = ''
                         finally:
                             message.command = COMMAND_SEND_NICK
-                            message.route = (0, message.route[0])
+                            message.route = (SERVER_ROUTE, message.route[0])
                             self.client.send(message)
-                    # Handle handshake commands
-                    elif message.command in SESSION_COMMANDS:
+                    # Handle session commands
+                    elif message.command in SESSION_COMMANDS + LOOP_COMMANDS:
                         remote = self.client.manager.getClientById(message.route[1])
                         remote.send(message)
-                    # Handle invalid requests
-                    elif message.command != COMMAND_RELAY:
-                        msg = "{0}: sent invalid command".format(self.client.id)
-                        self.exit(ERR_INVALID_COMMAND, msg)
-                        return
                     # Handle relay requests
-                    else:
+                    elif message.command == COMMAND_RELAY:
                         try:
                             remote = self.client.manager.getClientById(message.route[1])
                             remote.send(message)
                         except KeyError:
                             msg = "{0}: requested to send message to invalid id".format(self.client.id)
                             self.exit(ERR_INVALID_ID, msg)
+                    # Handle invalid requests
+                    else:
+                        msg = "{0}: sent invalid command".format(self.client.id)
+                        self.exit(ERR_INVALID_COMMAND, msg)
+                        return
+                        
                 # Handle errors
                 except Exception as e:
                     if hasattr(e, 'errno') and (e.errno != ERR_CLOSED_CONNECTION):
@@ -173,12 +174,14 @@ class HingeClient(Connection):
         self.recv_thread.start()
 
     def __nickRegistered(self, nick, remote_id):
-        # Write to log
-        self.server.notify("{0} -> {1}".format(str(self.sock), nick))
         # Add to CIDM
         self.nick = nick
         self.manager.updateClientId(self.id, remote_id)
         self.manager.register(self)
+        # Write to log
+        self.server.notify("{0} -> {1}, {2}".format(self.ip,
+                                                    self.nick,
+                                                    self.id))
 
     def send(self, message):
         self.send_thread.queue.put(message)
@@ -191,7 +194,7 @@ class HingeClient(Connection):
         self.sock.disconnect()
 
     def kick(self):
-        message = Message(COMMAND_ERR, (0, self.id), ERR_KICKED)
+        message = Message(COMMAND_ERR, (SERVER_ROUTE, self.id), ERR_KICKED)
         self.send(message)
         time.sleep(0.25)
         self.disconnect()

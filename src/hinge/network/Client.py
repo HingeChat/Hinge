@@ -76,7 +76,7 @@ class Client(HingeObject.HingeObject):
                                 self.client.callbacks['new'](message.route[0])
                             else:
                                 message = Message.Message(COMMAND_ERR,
-                                                          (self.client.id, 0),
+                                                          (self.client.id, SERVER_ROUTE),
                                                           error=INVALID_COMMAND)
                                 self.client.sendMessage(message)
                 except NetworkError as ne:
@@ -101,14 +101,13 @@ class Client(HingeObject.HingeObject):
         self.__sendServerCommand(COMMAND_VERSION, PROTOCOL_VERSION)
 
     def __sendServerCommand(self, command, data=''):
-        message = Message.Message(command, (self.id, 0), data)
+        message = Message.Message(command, (self.id, SERVER_ROUTE), data)
         self.send_thread.message_queue.put(message)
 
     def __registerNick(self):
         self.__sendServerCommand(COMMAND_REGISTER, self.nick)
 
-    def __createSession(self, nick, imediate_handshake=False):
-        remote_id = self.getClientId(nick)
+    def __createSession(self, remote_id, imediate_handshake=False):
         if remote_id == self.id:
             self.callbacks['err'](remote_id, ERR_SELF_CONNECT)
         elif remote_id in self.sessions:
@@ -121,7 +120,7 @@ class Client(HingeObject.HingeObject):
     def _waitForResp(self):
         while self.sync_resp is None:
             pass
-        resp = self.sync_resp
+        resp = str(self.sync_resp)
         self.sync_resp = None
         return resp
 
@@ -145,25 +144,23 @@ class Client(HingeObject.HingeObject):
 
     def getClientId(self, nick):
         self.__sendServerCommand(COMMAND_REQ_ID, nick)
-        return int(self._waitForResp())
+        return self._waitForResp()
 
     def getClientNick(self, client_id):
         self.__sendServerCommand(COMMAND_REQ_NICK, client_id)
-        return str(self._waitForResp())
+        return self._waitForResp()
 
     def getSession(self, session_id):
-        try:
-            return self.sessions[session_id]
-        except KeyError:
-            return None
+        return self.sessions.get(session_id)
 
     def openSession(self, nick):
-        self.__createSession(nick, imediate_handshake=True)
+        remote_id = self.getClientId(nick)
+        self.__createSession(remote_id, imediate_handshake=True)
 
     def closeSession(self, session_id):
         if self.getClient(session_id):
             # Send END command
-            message = Message.Message(COMMAND_END, (self.id, 0))
+            message = Message.Message(COMMAND_END, (self.id, SERVER_ROUTE))
             self.sendMessage(message)
             # Remove session from sessions list
             self.destroySession(session_id)
@@ -176,8 +173,8 @@ class Client(HingeObject.HingeObject):
     def sendMessage(self, message):
         self.send_thread.message_queue.put(message)
 
-    def newClientAccepted(self, nick):
-        self.__createSession(nick)
+    def newClientAccepted(self, remote_id):
+        self.__createSession(remote_id)
 
     def newClientRejected(self, remote_id):
         # If rejected, send the rejected command to the client
