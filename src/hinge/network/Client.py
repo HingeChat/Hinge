@@ -182,4 +182,4 @@ class Client(HingeObject.HingeObject):
         self.sendMessage(message)
 
     def respondSmp(self, session_id, answer):
-        self.sessions[session_id].respondSMP(answer)
+        self.sessions[session_id].respondSmp(answer)

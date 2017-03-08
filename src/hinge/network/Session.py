@@ -71,7 +71,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
 
         if (data is not None) and self.encrypted:
             # Encrypt data and message number & generate HMAC
-            enc_data = self.crypto.aesEncrypt(data.encode())
+            enc_data = self.crypto.aesEncrypt(data)
             num = self.crypto.aesEncrypt(str(self.outgoing_message_num).encode())
             hmac = self.crypto.generateHmac(enc_data)
             # Update message

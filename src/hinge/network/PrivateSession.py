@@ -88,7 +88,7 @@ class PrivateSession(Session.Session):
 
     def __checkSmp(self):
         if not self.smp.match:
-            raise CryptoError(errno=ERR_SMP_MATCH_FAILED)
+            raise CryptoError(err=ERR_SMP_MATCH_FAILED)
         else:
             return True
 
@@ -112,9 +112,9 @@ class PrivateSession(Session.Session):
             elif command == COMMAND_SMP_4:
                 self.__doSmpStep4(data)
             else:
-                raise CryptoError(errno=ERR_SMP_CHECK_FAILED)
+                raise CryptoError(err=ERR_SMP_CHECK_FAILED)
         except CryptoError as ce:
-            self.smpRequestCallback(SMP_CALLBACK_ERROR, self.remote_id, '', ce.errno)
+            self.client.callbacks['smp'](SMP_CALLBACK_ERROR, self.remote_id, '', ce.err)
 
     def __doSmpStep1(self, data):
         buffer = self.smp.step2(data)
@@ -172,10 +172,10 @@ class PrivateSession(Session.Session):
                                                   data.decode())
 
     def initiateSmp(self, question, answer):
-        self.sendMessage(COMMAND_SMP0, question)
+        self.sendMessage(COMMAND_SMP_0, question)
         self.smp = SMP(answer)
         buffer = self.smp.step1()
-        self.sendMessage(COMMAND_SMP1, buffer)
+        self.sendMessage(COMMAND_SMP_1, buffer)
 
     def respondSmp(self, answer):
         self.smp = SMP(answer)

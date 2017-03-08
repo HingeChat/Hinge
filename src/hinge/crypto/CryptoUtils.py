@@ -72,6 +72,8 @@ class CryptoUtils(object):
         return hmac
 
     def generateHash(self, message):
+        if hasattr(message, "encode"):
+            message = message.encode()
         new_hash = SHA256.new(message).digest()
         return new_hash
 
@@ -98,6 +100,8 @@ class CryptoUtils(object):
         return self.dh.pub_key
 
     def _pad(self, msg, bs):
+        if hasattr(msg, "encode"):
+            msg = msg.encode()
         return msg + (bs - len(msg) % bs) * bytes([bs - len(msg) % bs])
 
     @staticmethod
