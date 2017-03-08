@@ -33,7 +33,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
             # Check HMAC
             if not self.__verifyHmac(message.hmac, data):
                 self.client.callbacks['err'](message.route, ERR_BAD_HMAC)
-                raise CryptoError(errno=errors.BAD_HMAC)
+                raise CryptoError(err=BAD_HMAC)
             else:
                 try:
                     # Check message number
