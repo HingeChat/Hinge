@@ -23,7 +23,7 @@ class ClientManager(object):
 
     def __clientRegistered(self, client):
         if self._nick_to_client.get(client.nick):
-            raise Exception("client with nick {0} already exists".format(client.id))
+            print("client with nick {0} already exists".format(client.id)) # TODO: Fix this so that clients that abruptly disconnect can reconnect
         else:
             self._nick_to_client[client.nick] = client
 
@@ -31,7 +31,7 @@ class ClientManager(object):
         if self._nick_to_client.get(nick):
             del self._nick_to_client[nick]
         else:
-            raise KeyError("client with nick {0} does not exist".format(nick))
+            print("client with nick {0} does not exist".format(nick))
 
     def add(self, client):
         # Add to IP map
@@ -44,7 +44,7 @@ class ClientManager(object):
             self._id_to_client[client.id] = client
         else:
             # Should not happen
-            raise Exception("client with id {0} already exists".format(client.id))
+            print("client with id {0} already exists".format(client.id))
 
     def remove(self, client):
         # Remove from nick map
@@ -59,18 +59,18 @@ class ClientManager(object):
         if self._id_to_client.get(client.id):
             del self._id_to_client[client.id]
         else:
-            raise KeyError("client with id {0} does not exist".format(client.id))
+            print("client with id {0} does not exist".format(client.id))
         # Remove from IP map
         if self._ip_to_connections.get(client.ip):
             self._ip_to_connections.get(client.ip).remove(client)
         else:
-            raise KeyError("ip {0} is not connected".format(client.ip))
+            print("ip {0} is not connected".format(client.ip))
 
     def register(self, client):
         if not self._id_to_client.get(client.id):
-            raise Exception("client with id {0} does not exist".format(client.id))
+            print("client with id {0} does not exist".format(client.id))
         elif client.nick is None:
-            raise Exception("client has no nick")
+            print("client has no nick")
         else:
             self.__clientRegistered(client)
 
@@ -106,13 +106,13 @@ class ClientManager(object):
         if self.isIdRegistered(client_id):
             return self._id_to_client.get(client_id)
         else:
-            raise KeyError("client with id {0} does not exist".format(client_id))
+            print("client with id {0} does not exist".format(client_id))
 
     def getClientByNick(self, nick):
         if self.isNickRegistered(nick):
             return self._nick_to_client.get(nick)
         else:
-            raise KeyError("client with nick {0} does not exist".format(nick))
+            print("client with nick {0} does not exist".format(nick))
 
     def getClientId(self, nick):
         client = self.getClientByNick(nick)
