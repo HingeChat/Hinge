@@ -1,91 +1,12 @@
-from src.hinge.crypto import CryptoUtils
+from . import CryptoUtils
 import struct
 
 from src.hinge.utils import *
 
-
-def packList(*items):
-    buffer = b''
-
-    # For each item in the list, convert it to a byte string and add its length as a prefix
-    for item in items:
-        new_bytes = longToBytes(item)
-        buffer += struct.pack('!I', len(new_bytes)) + new_bytes
-
-    return buffer
-
-
-def unpackList(buffer):
-    items = []
-
-    index = 0
-    while index < len(buffer):
-        # Get the length of the long (4 byte int before the actual long)
-        length = struct.unpack('!I', buffer[index:index+4])[0]
-        index += 4
-
-        # Convert the data back to a long and add it to the list
-        item = bytesToLong(buffer[index:index+length])
-        items.append(item)
-        index += length
-
-    return items
-
-
-def bytesToLong(new_bytes):
-    length = len(new_bytes)
-    string = 0
-    for i in range(length):
-        string += byteToLong(new_bytes[i:i+1]) << 8*(length-i-1)
-    return string
-
-
-def longToBytes(long):
-    new_bytes = b''
-    while long != 0:
-        new_bytes = longToByte(long & 0xff) + new_bytes
-        long >>= 8
-    return new_bytes
-
-
-def byteToLong(byte):
-    return struct.unpack('B', byte)[0]
-
-
-def longToByte(long):
-    return struct.pack('B', long)
-
-
-def mulm(x, y, mod):
-    return x * y % mod
-
-
-def subm(x, y, mod):
-    return (x - y) % mod
-
-
-def createRandomExponent():
-    new_bytes = CryptoUtils.CryptoUtils().getRandomBytes(192)
-    return CryptoUtils.binToDec(new_bytes)
-
-
 class SMP(object):
-
     def __init__(self, secret=None):
-        self.mod = int('0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C662'
-                       '8B80DC1CD129024E088A67CC74020BBEA63B139B'
-                       '22514A08798E3404DDEF9519B3CD3A431B302B0A'
-                       '6DF25F14374FE1356D6D51C245E485B576625E7E'
-                       'C6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386B'
-                       'FB5A899FA5AE9F24117C4B1FE649286651ECE45B'
-                       '3DC2007CB8A163BF0598DA48361C55D39A69163F'
-                       'A8FD24CF5F83655D23DCA3AD961C62F356208552'
-                       'BB9ED529077096966D670C354E4ABC9804F1746C'
-                       '08CA18217C32905E462E36CE3BE39E772C180E86'
-                       '039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCB'
-                       'F6955817183995497CEA956AE515D2261898FA05'
-                       '1015728E5A8AACAA68FFFFFFFFFFFFFFFF', 0)
-        self.mod_order = (self.mod - 1) // 2
+        self.mod = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+        self.modOrder = (self.mod-1) // 2
         self.gen = 2
         self.match = False
         self.crypto = CryptoUtils.CryptoUtils()
@@ -222,16 +143,16 @@ class SMP(object):
             self.match = True
 
     def createLogProof(self, version, x):
-        rand_exponent = createRandomExponent()
-        c = self.generateHash(version + str(pow(self.gen, rand_exponent, self.mod)))
-        d = subm(rand_exponent, mulm(x, c, self.mod_order), self.mod_order)
+        randExponent = createRandomExponent()
+        c = self.hash(version + str(pow(self.gen, randExponent, self.mod)))
+        d = subm(randExponent, mulm(x, c, self.modOrder), self.modOrder)
         return (c, d)
 
     def checkLogProof(self, version, g, c, d):
         gd = pow(self.gen, d, self.mod)
         gc = pow(g, c, self.mod)
         gdgc = gd * gc % self.mod
-        return (self.generateHash(version + str(gdgc)) == c)
+        return (self.hash(version + str(gdgc)) == c)
 
     def createCoordsProof(self, version, g2, g3, r):
         r1 = createRandomExponent()
@@ -240,10 +161,10 @@ class SMP(object):
         tmp1 = pow(g3, r1, self.mod)
         tmp2 = mulm(pow(self.gen, r1, self.mod), pow(g2, r2, self.mod), self.mod)
 
-        c = self.generateHash(version + str(tmp1) + str(tmp2))
+        c = self.hash(version + str(tmp1) + str(tmp2))
 
-        d1 = subm(r1, mulm(r, c, self.mod_order), self.mod_order)
-        d2 = subm(r2, mulm(self.secret, c, self.mod_order), self.mod_order)
+        d1 = subm(r1, mulm(r, c, self.modOrder), self.modOrder)
+        d2 = subm(r2, mulm(self.secret, c, self.modOrder), self.modOrder)
 
         return (c, d1, d2)
 
@@ -251,7 +172,7 @@ class SMP(object):
         tmp1 = mulm(pow(g3, d1, self.mod), pow(p, c, self.mod), self.mod)
         tmp2 = mulm(mulm(pow(self.gen, d1, self.mod), pow(g2, d2, self.mod), self.mod), pow(q, c, self.mod), self.mod)
 
-        cprime = self.generateHash(version + str(tmp1) + str(tmp2))
+        cprime = self.hash(version + str(tmp1) + str(tmp2))
 
         return (c == cprime)
 
@@ -261,9 +182,9 @@ class SMP(object):
         qab = mulm(qa, qb, self.mod)
         tmp2 = pow(qab, r, self.mod)
 
-        c = self.generateHash(version + str(tmp1) + str(tmp2))
-        tmp1 = mulm(x, c, self.mod_order)
-        d = subm(r, tmp1, self.mod_order)
+        c = self.hash(version + str(tmp1) + str(tmp2))
+        tmp1 = mulm(x, c, self.modOrder)
+        d = subm(r, tmp1, self.modOrder)
 
         return (c, d)
 
@@ -271,7 +192,7 @@ class SMP(object):
         tmp1 = mulm(pow(self.gen, d, self.mod), pow(g3, c, self.mod), self.mod)
         tmp2 = mulm(pow(qab, d, self.mod), pow(r, c, self.mod), self.mod)
 
-        cprime = self.generateHash(version + str(tmp1) + str(tmp2))
+        cprime = self.hash(version + str(tmp1) + str(tmp2))
 
         return (c == cprime)
 
@@ -281,5 +202,61 @@ class SMP(object):
     def isValidArgument(self, val):
         return (val >= 2 and val <= self.mod-2)
 
-    def generateHash(self, message):
+    def hash(self, message):
         return int(self.crypto.stringHash(message), 16)
+
+def packList(*items):
+    buffer = b''
+
+    # For each item in the list, convert it to a byte string and add its length as a prefix
+    for item in items:
+        bytes = longToBytes(item)
+        buffer += struct.pack('!I', len(bytes)) + bytes
+
+    return buffer
+
+def unpackList(buffer):
+    items = []
+
+    index = 0
+    while index < len(buffer):
+        # Get the length of the long (4 byte int before the actual long)
+        length = struct.unpack('!I', buffer[index:index+4])[0]
+        index += 4
+
+        # Convert the data back to a long and add it to the list
+        item = bytesToLong(buffer[index:index+length])
+        items.append(item)
+        index += length
+
+    return items
+
+def bytesToLong(bytes):
+    length = len(bytes)
+    string = 0
+    for i in range(length):
+        string += byteToLong(bytes[i:i+1]) << 8*(length-i-1)
+    return string
+
+def longToBytes(long):
+    bytes = b''
+    while long != 0:
+        bytes = longToByte(long & 0xff) + bytes
+        long >>= 8
+    return bytes
+
+def byteToLong(byte):
+    return struct.unpack('B', byte)[0]
+
+def longToByte(long):
+    return struct.pack('B', long)
+
+def mulm(x, y, mod):
+    return x * y % mod
+
+def subm(x, y, mod):
+    return (x - y) % mod
+
+def createRandomExponent():
+    bytes = CryptoUtils.CryptoUtils().getRandomBytes(192)
+    return CryptoUtils.binToDec(bytes)
