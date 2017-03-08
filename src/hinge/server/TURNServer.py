@@ -48,7 +48,9 @@ class TURNServer(object):
             client_sock = Socket(client_addr, client_sock)
             # Store client's IP and port
             self.notify("Got connection: {0}".format(client_sock))
-            self.client_manager.add(HingeClient(self, client_sock))
+            new_client = HingeClient(self, client_sock)
+            self.client_manager.add(new_client)
+            new_client.connect()
 
     def startServer(self):
         self.notify("Starting server...")
@@ -66,7 +68,7 @@ class TURNServer(object):
         # Pulse shutdown
         message = Message(COMMAND_END, error=ERR_SERVER_SHUTDOWN)
         for client in self.client_manager.clients:
-            message.route = (0, client.id)
+            message.route = (SERVER_ROUTE, client.id)
             client.send(message)
         # Pause to ensure message has been received
         time.sleep(0.25)

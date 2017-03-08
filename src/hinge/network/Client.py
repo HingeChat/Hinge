@@ -25,12 +25,13 @@ class Client(HingeObject.HingeObject):
                 message = self.message_queue.get()
                 try:
                     self.client.sock.send(message.json())
-                    if message.command == COMMAND_END:
+                    if (message.command == COMMAND_END) and \
+                       (message.route[1] == SERVER_ROUTE):
                         self.client.sock.disconnect()
                     else:
                         pass
                 except NetworkError as ne:
-                    self.client.callbacks['err']('', ERR_NETWORK_ERROR)
+                    self.client.callbacks['err'](SERVER_ROUTE, ERR_NETWORK_ERROR)
                     return
                 finally:
                     self.message_queue.task_done()
@@ -62,7 +63,10 @@ class Client(HingeObject.HingeObject):
                             pass
                         self.client.callbacks['err'](message.route[1], error)
                     elif message.command == COMMAND_END:
-                        self.client.callbacks['err']('', error)
+                        if message.route[0] == SERVER_ROUTE:
+                            self.client.callbacks['err'](SERVER_ROUTE, error)
+                        else:
+                            self.client.callbacks['err'](message.route[0], ERR_CONN_ENDED)
                     elif message.command in SYNC_COMMANDS:
                         self.client.sync_resp = message.data
                     else:
@@ -81,7 +85,7 @@ class Client(HingeObject.HingeObject):
                                 self.client.sendMessage(message)
                 except NetworkError as ne:
                     if hasattr(ne, 'errno') and (ne.errno != ERR_CLOSED_CONNECTION):
-                        self.client.callbacks['err']('', ERR_NETWORK_ERROR)
+                        self.client.callbacks['err'](SERVER_ROUTE, ERR_NETWORK_ERROR)
                     else:
                         pass
                     return
@@ -157,13 +161,14 @@ class Client(HingeObject.HingeObject):
         remote_id = self.getClientId(nick)
         self.__createSession(remote_id, imediate_handshake=True)
 
-    def closeSession(self, session_id):
-        if self.getClient(session_id):
+    def closeSession(self, nick):
+        remote_id = self.getClientId(nick)
+        if remote_id:
             # Send END command
-            message = Message.Message(COMMAND_END, (self.id, SERVER_ROUTE))
+            message = Message.Message(COMMAND_END, (self.id, remote_id))
             self.sendMessage(message)
             # Remove session from sessions list
-            self.destroySession(session_id)
+            self.destroySession(remote_id)
         else:
             pass
 

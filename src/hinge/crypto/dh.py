@@ -29,10 +29,13 @@ def_p = int('0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67'
             'EB19CCB1A313D55CDA56C9EC2EF29632387FE8D76E3C0468043E8F663F4860'
             'EE12BF2D5B0B7474D6E694F91E6DCC4024FFFFFFFFFFFFFFFF', 0)
 
+
 class DHError(Exception):
     pass
 
+
 class DiffieHellman(object):
+
     def __init__(self, p=None, g=None, priv_key=None):
         if (p is not None) and (g is not None):
             self.p = p

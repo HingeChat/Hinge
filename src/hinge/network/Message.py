@@ -1,11 +1,13 @@
 import base64
 import json
 
+from src.hinge.utils import *
+
 
 class Message(object):
 
     def __init__(self,
-                 command, route=(0, 0), data='',
+                 command, route=(SERVER_ROUTE, SERVER_ROUTE), data='',
                  hmac='', error='', num=''):
 
         self.command = str(command)

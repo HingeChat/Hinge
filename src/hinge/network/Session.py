@@ -32,7 +32,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
             enc_num = message.getMessageNumAsBinaryString()
             # Check HMAC
             if not self.__verifyHmac(message.hmac, data):
-                self.client.callbacks['err'](message.route, ERR_BAD_HMAC)
+                self.client.callbacks['err'](message.route[0], ERR_BAD_HMAC)
                 raise CryptoError(err=BAD_HMAC)
             else:
                 try:
@@ -47,7 +47,7 @@ class Session(threading.Thread, HingeObject.HingeObject):
                     data = self.crypto.aesDecrypt(data)
                     return data
                 except CryptoError as ce:
-                    self.client.callbacks['err'](message.route, ERR_BAD_DECRYPT)
+                    self.client.callbacks['err'](message.route[0], ERR_BAD_DECRYPT)
                     raise ce
         else:
             return message.data

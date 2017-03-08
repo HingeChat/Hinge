@@ -15,7 +15,7 @@ class Connection(object):
         self.nick = None
 
     def updateId(self, new_id):
-        self.id = new_id
+        self.id = str(new_id)
 
 
 class HingeClient(Connection):
@@ -109,9 +109,13 @@ class HingeClient(Connection):
                         return
                     # Handle request to end connection
                     if message.command == COMMAND_END:
-                        self.client.server.notify("{0}: requested to end conection".format(self.client.id))
-                        self.client.manager.remove(self.client)
-                        self.client.disconnect()
+                        if message.route[1] == SERVER_ROUTE:
+                            self.client.server.notify("{0}: requested to end conection".format(self.client.id))
+                            self.client.manager.remove(self.client)
+                            self.client.disconnect()
+                        else:
+                            remote = self.client.manager.getClientById(message.route[1])
+                            remote.send(message)
                     # Handle requests to retrieve a client's id
                     elif message.command == COMMAND_REQ_ID:
                         try:
@@ -169,8 +173,10 @@ class HingeClient(Connection):
         self.sock = sock
         self.manager = self.server.client_manager
         self.send_thread = HingeClient.SendThread(self)
-        self.send_thread.start()
         self.recv_thread = HingeClient.RecvThread(self)
+
+    def connect(self):
+        self.send_thread.start()
         self.recv_thread.start()
 
     def __nickRegistered(self, nick, remote_id):
